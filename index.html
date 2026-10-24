@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Azeroth Save Editor</title>
-<meta name="description" content="Editor offline dei salvataggi RSE1 di Azeroth Survivors. Tutto gira nel browser, nessun dato lascia il dispositivo.">
+<title>Save Editor</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="description" content="Editor offline di salvataggi.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 29 9v14L16 30 3 23V9z' fill='%23c9a227'/%3E%3Cpath d='M16 8 23 12v8l-7 4-7-4v-8z' fill='%231a1712'/%3E%3C/svg%3E">
 <style>
 :root{
@@ -170,8 +171,8 @@ th.q0,th.q1,th.q2,th.q3,th.q4,th.q5{color:color-mix(in srgb,var(--q) 72%,var(--f
 <div class="wrap">
   <header class="top">
     <div>
-      <h1><span class="rune">◆</span> Azeroth Save Editor</h1>
-      <div class="sub">Decodifica, modifica e ricodifica dei salvataggi <span class="mono">RSE1:</span> di Azeroth Survivors. Funziona offline, nessun dato lascia il browser.</div>
+      <h1><span class="rune">◆</span> Save Editor</h1>
+      <div class="sub">Decodifica, modifica e ricodifica dei salvataggi <span class="mono">RSE1:</span>. Funziona offline, nessun dato lascia il browser.</div>
     </div>
     <div class="row"><button class="btn ghost small" id="iconBtn" type="button" title="Carica le icone dei talenti da Wowhead (richiede connessione)"></button><button class="btn ghost small" id="themeBtn" type="button" title="Cambia tema">Tema</button></div>
   </header>
@@ -963,8 +964,8 @@ $("encodeBtn").onclick=()=>{
   }catch(e){ status("outStatus","bad",e.message); }
 };
 $("copyBtn").onclick=()=>copy($("outStr").value);
-$("dlBtn").onclick=()=>download("azeroth-save-"+stamp()+".txt",$("outStr").value);
-$("dlPlainBtn").onclick=()=>download("azeroth-save-chiaro-"+stamp()+".txt",text());
+$("dlBtn").onclick=()=>download("save-"+stamp()+".txt",$("outStr").value);
+$("dlPlainBtn").onclick=()=>download("save-chiaro-"+stamp()+".txt",text());
 $("resetBtn").onclick=()=>{ if(confirm("Annullare tutte le modifiche e tornare all'originale importato?")){ S.lines=S.original.split("\n"); renderTab(); changed(); } };
 $("themeBtn").onclick=()=>{
   const r=document.documentElement, dark = r.dataset.theme ? r.dataset.theme==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
