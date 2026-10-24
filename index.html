@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Azeroth Save Editor</title>
+<meta name="description" content="Editor offline dei salvataggi RSE1 di Azeroth Survivors. Tutto gira nel browser, nessun dato lascia il dispositivo.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 29 9v14L16 30 3 23V9z' fill='%23c9a227'/%3E%3Cpath d='M16 8 23 12v8l-7 4-7-4v-8z' fill='%231a1712'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f5f1e8; --panel:#fffdf8; --panel2:#efe8d9; --line:#d9cfba; --fg:#221d14; --mute:#6f6553;
+  --gold:#9a7412; --gold-soft:#f1e3b8; --ok:#2f7a3b; --ok-soft:#dcefdc; --bad:#a83228; --bad-soft:#f6dcd8;
+  --warn:#8a5a00; --warn-soft:#f8ebcf; --add:#dcefdc; --del:#f6dcd8; --focus:#c9a227;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --serif:Georgia,"Palatino Linotype","Book Antiqua",serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#13110d; --panel:#1c1913; --panel2:#25211a; --line:#3a3428; --fg:#ece4d2; --mute:#a59a83;
+    --gold:#d8b043; --gold-soft:#3a2f12; --ok:#7cc487; --ok-soft:#1d3320; --bad:#ec8b80; --bad-soft:#3d1d19;
+    --warn:#e7bb5c; --warn-soft:#3a2d12; --add:#1d3320; --del:#3d1d19; --focus:#d8b043; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#13110d; --panel:#1c1913; --panel2:#25211a; --line:#3a3428; --fg:#ece4d2; --mute:#a59a83;
+  --gold:#d8b043; --gold-soft:#3a2f12; --ok:#7cc487; --ok-soft:#1d3320; --bad:#ec8b80; --bad-soft:#3d1d19;
+  --warn:#e7bb5c; --warn-soft:#3a2d12; --add:#1d3320; --del:#3d1d19; --focus:#d8b043; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--sans);-webkit-text-size-adjust:100%}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 48px}
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:16px}
+h1{font:600 26px/1.15 var(--serif);margin:0;letter-spacing:.2px}
+h1 .rune{color:var(--gold)}
+.sub{color:var(--mute);font-size:14px;margin-top:4px}
+h2{font:600 18px/1.3 var(--serif);margin:0 0 10px}
+h3{font-size:14px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+.warn{background:var(--warn-soft);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);color:var(--fg);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:14px}
+.warn ul{margin:4px 0 0;padding-left:18px}
+.warn strong{color:var(--warn)}
+textarea,input,select{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;min-width:0}
+textarea{width:100%;font-family:var(--mono);font-size:13px;line-height:1.45;resize:vertical}
+input[type=number]{width:110px}
+input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+.mono{font-family:var(--mono);font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{font:600 14px var(--sans);border:1px solid var(--line);background:var(--panel2);color:var(--fg);border-radius:6px;padding:7px 12px;cursor:pointer}
+.btn:hover{border-color:var(--gold)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:#1a1712}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.small{padding:3px 9px;font-size:13px}
+.btn.ghost{background:transparent}
+.btn.x{padding:2px 8px;font-size:13px;color:var(--bad);background:transparent}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.status{margin-top:10px;font-size:14px;padding:8px 12px;border-radius:6px;display:none}
+.status.ok{display:block;background:var(--ok-soft);color:var(--ok)}
+.status.bad{display:block;background:var(--bad-soft);color:var(--bad)}
+.status.info{display:block;background:var(--panel2);color:var(--mute)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.tabs{display:flex;gap:2px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin:-4px 0 14px}
+.tab{background:none;border:none;border-bottom:2px solid transparent;padding:8px 12px;font:600 14px var(--sans);color:var(--mute);cursor:pointer}
+.tab[aria-selected=true]{color:var(--fg);border-bottom-color:var(--gold)}
+.tab .n{font-weight:500;color:var(--mute);font-size:12px;margin-left:4px}
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px 14px}
+.field label{display:block;font-size:12px;color:var(--mute);margin-bottom:3px}
+.field input{width:100%}
+.field .row{flex-wrap:nowrap}
+.field .row input[type=number]{width:130px;flex:0 0 130px}
+.field .row select{flex:1 1 auto}
+.field input[type=checkbox]{width:auto;flex:0 0 auto;margin:0}
+@media (max-width:520px){.field .row{flex-wrap:wrap}.field .row select{flex:1 1 100%}}
+.hint{font-size:12px;color:var(--mute)}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px;background:var(--panel)}
+.card .head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.card .title{font:600 16px var(--serif)}
+.badge{display:inline-block;font:600 11px var(--sans);text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:999px;background:var(--gold-soft);color:var(--gold)}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12px;color:var(--mute);font-weight:600}
+td input{width:100%}
+td input[type=number]{width:100%;max-width:130px}
+td.act{width:1%;white-space:nowrap}
+.scroll{overflow-x:auto}
+.pairs{display:grid;grid-template-columns:minmax(0,1fr) 110px auto;gap:6px 8px;align-items:center}
+.pairs .h{font-size:12px;color:var(--mute);font-weight:600}
+.lineedit{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--line)}
+.lineedit .t{font:600 12px var(--mono);color:var(--gold);min-width:56px}
+.lineedit input{flex:1 1 120px;font-family:var(--mono);font-size:13px}
+.diff{font-family:var(--mono);font-size:12.5px;white-space:pre-wrap;word-break:break-all;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.diff div{padding:1px 8px}
+.diff .a{background:var(--add)}
+.diff .d{background:var(--del)}
+.diff .a::before{content:"+ ";color:var(--ok)}
+.diff .d::before{content:"− ";color:var(--bad)}
+.diff .s::before{content:"  "}
+.diff .s{color:var(--mute)}
+aside .panel{position:sticky;top:12px}
+.out{min-height:120px;font-size:12px;word-break:break-all}
+.chg{font-size:13px;color:var(--mute)}
+.chg b{color:var(--gold)}
+details summary{cursor:pointer;font-weight:600}
+.bk{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
+.bk .meta{color:var(--mute);font-size:12px}
+.hidden{display:none!important}
+footer{color:var(--mute);font-size:12.5px;margin-top:24px;border-top:1px solid var(--line);padding-top:12px}
+footer a{color:var(--gold)}
+.empty{color:var(--mute);font-style:italic;padding:8px 0}
+.classbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel2);border-radius:999px;padding:3px 10px 3px 3px;font:600 13px var(--sans);cursor:pointer;color:var(--fg)}
+.chip:hover{border-color:var(--gold)}
+.chip[aria-pressed=true]{border-color:var(--gold);background:var(--gold-soft)}
+.chip .cnt,.th .cnt{color:var(--mute);font-weight:500;font-size:12px}
+.ico,.nimg{display:inline-flex;width:30px;height:30px;border-radius:6px;overflow:hidden;background:#0b0a08;flex:0 0 auto}
+.ico.sm{width:22px;height:22px;border-radius:50%}
+.ico.lg{width:40px;height:40px}
+.ico img,.nimg img{width:100%;height:100%;display:block;object-fit:cover}
+.fb{display:flex;align-items:center;justify-content:center;width:100%;height:100%;font:700 13px var(--serif);color:#d8b043;background:linear-gradient(135deg,#2b2519,#0e0c09)}
+.ico.sm .fb{font-size:10px}
+.spent{font:600 13px var(--mono);color:var(--gold)}
+.spent.over{color:var(--bad)}
+.trees{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:760px){.trees{grid-template-columns:minmax(0,1fr)}}
+.tree{border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--panel2)}
+.th{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.th .cnt{margin-left:auto;font:600 13px var(--mono);color:var(--gold)}
+.tgrid{display:grid;grid-template-columns:repeat(3,52px);justify-content:center;gap:12px 20px}
+.node{position:relative;width:52px;height:52px;padding:0;border:2px solid #4a4436;border-radius:8px;background:#0b0a08;cursor:pointer}
+.node .nimg{width:100%;height:100%;border-radius:5px}
+.node .fb{font-size:16px}
+.node.off .nimg{filter:grayscale(1) brightness(.5)}
+.node.part{border-color:#3fae4a}
+.node.max{border-color:#e2b53a;box-shadow:0 0 0 1px #e2b53a55}
+.node.bad{border-color:var(--bad)}
+.node:hover{transform:translateY(-1px)}
+.node .rk{position:absolute;right:-9px;bottom:-9px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font:700 11px/1.3 var(--mono);padding:0 4px;color:var(--fg)}
+.node.max .rk{color:var(--gold)}
+.node.part .rk{color:var(--ok)}
+.node.bad .rk{color:var(--bad);border-color:var(--bad)}
+details.raw summary{font-size:13px;color:var(--mute)}
+table.armory th,table.armory td{text-align:center}
+table.armory th[scope=row]{text-align:left;font-size:13px;color:var(--fg);white-space:nowrap}
+.chk{display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:var(--mute)}
+.chk input{width:18px;height:18px;margin:0}
+.q0{--q:#9d9d9d}.q1{--q:#1eff00}.q2{--q:#0070dd}.q3{--q:#a335ee}.q4{--q:#c69b6d}.q5{--q:#ff8000}
+th.q0,th.q1,th.q2,th.q3,th.q4,th.q5{color:color-mix(in srgb,var(--q) 72%,var(--fg));font-size:12px}
+@media (max-width:560px){.chk .mono{display:none} table.armory th,table.armory td{padding:5px 3px} table.armory th.cc{font-size:10.5px;hyphens:auto} table.armory th[scope=row]{white-space:normal;font-size:12px;min-width:56px}}
+.chk input{accent-color:var(--q)}
+.builds{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
+.build{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--panel2)}
+.build.on{border-color:var(--gold)}
+.zbar{height:6px;border-radius:99px;background:var(--panel2);overflow:hidden;margin-bottom:12px}
+.zbar span{display:block;height:100%;background:var(--gold)}
+.zgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.zcard{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;background:var(--panel2)}
+.zcard.on{border-color:var(--gold);background:var(--gold-soft)}
+.zcard input{width:18px;height:18px;margin:0;accent-color:var(--gold)}
+.zcard .zn{display:block;font-weight:600;font-size:14px}
+.unlock{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border:1px dashed var(--gold);border-radius:8px;padding:10px 12px;background:var(--gold-soft);margin-bottom:12px}
+.unlock input[type=number]{width:130px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1><span class="rune">◆</span> Azeroth Save Editor</h1>
+      <div class="sub">Decodifica, modifica e ricodifica dei salvataggi <span class="mono">RSE1:</span> di Azeroth Survivors. Funziona offline, nessun dato lascia il browser.</div>
+    </div>
+    <div class="row"><button class="btn ghost small" id="iconBtn" type="button" title="Carica le icone dei talenti da Wowhead (richiede connessione)"></button><button class="btn ghost small" id="themeBtn" type="button" title="Cambia tema">Tema</button></div>
+  </header>
+
+  <div class="warn">
+    <strong>Prima di modificare:</strong>
+    <ul>
+      <li>Conserva sempre la stringa originale. L'app la salva anche tra i backup locali, ma copiala tu da qualche parte.</li>
+      <li>Importare un salvataggio nel gioco sostituisce <b>tutti</b> i progressi dell'account.</li>
+      <li>Dopo l'aggiornamento di ottobre 2026 alcune modifiche possono essere annullate dal gioco quando entri in partita. Valori molto fuori scala sono i più a rischio.</li>
+    </ul>
+  </div>
+
+  <section class="panel" id="importPanel">
+    <h2>1 · Importa il salvataggio</h2>
+    <textarea id="inStr" rows="4" placeholder="Incolla qui la stringa RSE1:…" spellcheck="false" autocomplete="off"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="btn primary" id="decodeBtn" type="button">Decodifica</button>
+      <button class="btn" id="pasteBtn" type="button">Incolla dagli appunti</button>
+      <label class="btn" for="fileIn" style="display:inline-block">Apri file…</label>
+      <input type="file" id="fileIn" accept=".txt,text/plain" class="hidden">
+      <button class="btn ghost" id="plainBtn" type="button" title="Parti da un testo in chiaro già decodificato">Parti da testo in chiaro</button>
+    </div>
+    <div class="status" id="inStatus" role="status"></div>
+  </section>
+
+  <div class="grid hidden" id="editor">
+    <section class="panel">
+      <h2>2 · Modifica</h2>
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div id="tabBody"></div>
+    </section>
+
+    <aside>
+      <div class="panel">
+        <h2>3 · Esporta</h2>
+        <div class="chg" id="chg"></div>
+        <div class="row" style="margin:10px 0">
+          <button class="btn primary" id="encodeBtn" type="button">Genera stringa RSE1</button>
+          <button class="btn" id="resetBtn" type="button" title="Annulla tutte le modifiche">Ripristina originale</button>
+        </div>
+        <label class="hint" style="display:flex;gap:6px;align-items:flex-start;margin-bottom:8px"><input type="checkbox" id="syncSpec" checked style="margin-top:3px"> Aggiorna anche la build attiva (spec) delle classi di cui hai cambiato i talenti</label>
+        <textarea class="out" id="outStr" readonly placeholder="La stringa generata apparirà qui" spellcheck="false"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="copyBtn" type="button" disabled>Copia</button>
+          <button class="btn" id="dlBtn" type="button" disabled>Scarica .txt</button>
+          <button class="btn ghost" id="dlPlainBtn" type="button" title="Scarica il testo in chiaro attuale">Scarica testo</button>
+        </div>
+        <div class="status" id="outStatus" role="status"></div>
+        <p class="hint" style="margin-bottom:0">Ogni export usa un IV casuale nuovo: due stringhe diverse possono contenere lo stesso salvataggio.</p>
+      </div>
+    </aside>
+  </div>
+
+  <section class="panel">
+    <details id="bkDetails">
+      <summary>Backup locali in questo browser <span class="hint" id="bkCount"></span></summary>
+      <p class="hint">Ogni stringa importata o esportata viene conservata qui (ultime 40). Restano solo in questo browser: se cancelli i dati del sito spariscono.</p>
+      <div id="bkList"></div>
+    </details>
+  </section>
+
+  <footer>
+    Formato ricostruito in modo indipendente: IV di 16 byte, cifrario a flusso con HMAC-SHA1 in modalità contatore, tag HMAC-SHA1 di 20 byte.
+    Azeroth Survivors è un fan game di Aethus; il formato è stato studiato a partire dall'editor della community di yssadora/Shilen.
+    Icone dei talenti caricate da Wowhead (wow.zamimg.com), proprietà di Blizzard Entertainment: non sono incluse nel file e offline vengono sostituite dalle iniziali. Catalogo talenti dall'editor della community.
+    Progetto non ufficiale, nessuna affiliazione con Aethus né con Blizzard Entertainment.
+  </footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script id="catalog" type="application/json">[{"id":1,"name":"Warrior","trees":[{"tree":"Arms","icon":"Ability_Rogue_Eviscerate","t":[["imp_heroic","Improved Heroic Strike","Ability_Rogue_Ambush","Your weapon swings deal {v}% more damage.",0,0,5,null],["deflection","Deflection","Ability_Parry","Reduces all damage taken by {v}%.",0,1,5,null],["imp_rend","Improved Rend","Ability_Gouge","Rend deals {v}% more damage.",1,0,3,null],["tactical_mastery","Tactical Mastery","Spell_Nature_EnchantArmor","Your cooldowns recover {v}% faster.",1,2,5,null],["deep_wounds","Deep Wounds","Ability_BackStab","Milestone. Your critical strikes make the target bleed for {v}% of the hit over 6 sec.",2,1,1,null],["anger_management","Anger Management","Spell_Holy_BlessingOfStamina","Regenerate {v} more health per second.",2,2,3,null],["impale","Impale","Ability_SearingArrow","Your critical strikes deal {v}% more damage.",3,0,3,null],["two_hand_spec","Two-Handed Weapon Specialization","INV_Axe_09","Increases all damage by {v}%.",3,2,5,null],["sweeping_strikes","Sweeping Strikes","Ability_Rogue_SliceDice","Milestone. Cleave, Mortal Strike and Execute sweep on: each hit also strikes 2 more enemies near its target for {v}% of it.",4,1,1,"deep_wounds"],["imp_execute","Improved Execute","INV_Sword_48","Execute and Mortal Strike deal {v}% more damage.",4,2,3,null],["sword_spec","Sword Specialization","INV_Sword_27","{v}% chance for any spell to strike twice.",5,0,5,null],["weapon_mastery","Weapon Mastery","Ability_Warrior_Sunder","You deal {v}% more damage to enemies below 30% health.",5,2,3,null],["mortal_wounds","Mortal Wounds","Ability_Warrior_SavageBlow","Capstone. You start every run with Mortal Strike; a killing blow by Mortal Strike or Execute readies it again at once, at most once a second.",6,1,1,"sweeping_strikes"]]},{"tree":"Fury","icon":"Ability_Warrior_InnerRage","t":[["cruelty","Cruelty","Ability_Rogue_Eviscerate","Increases your critical strike chance by {v}%.",0,1,5,null],["booming_voice","Booming Voice","Spell_Nature_Purge","Your shouts reach {v}% farther and last longer.",0,2,5,null],["unbridled_wrath","Unbridled Wrath","Spell_Nature_StoneClawTotem","Your weapon swings deal {v}% more damage.",1,0,5,null],["imp_battle_shout","Improved Battle Shout","Ability_Warrior_BattleShout","Battle Shout's cooldown is {v}% shorter.",1,2,3,null],["rampage","Rampage","Spell_Shadow_UnholyFrenzy","Milestone. Every {v}th kill unleashes a free Whirlwind.",2,1,1,null],["imp_cleave","Improved Cleave","Ability_Warrior_Cleave","Cleave deals {v}% more damage.",2,2,3,null],["dual_wield_spec","Dual Wield Specialization","Ability_DualWield","Increases all damage by {v}%.",3,0,5,null],["imp_whirlwind","Improved Whirlwind","Ability_Whirlwind","Whirlwind reaches {v}% farther.",3,2,3,null],["flurry","Flurry","Ability_GhoulFrenzy","Milestone. Whirlwind and Bloodthirst strike twice: everything they hit is struck again at once for 40% of the blow.",4,1,1,"rampage"],["death_wish","Death Wish","Spell_Shadow_DeathPact","Bloodthirst and Whirlwind deal {v}% more damage.",4,2,3,null],["blood_craze","Blood Craze","Spell_Shadow_SummonImp","{v}% of all the damage you deal heals you.",5,0,3,null],["imp_berserker","Improved Berserker Stance","Ability_Racial_Avatar","Increases your critical strike damage by {v}%.",5,2,5,null],["bladestorm","Bladestorm","Ability_Whirlwind","Capstone. You start every run with Whirlwind, and you never stop spinning: a free Whirlwind every 3 sec.",6,1,1,"flurry"]]},{"tree":"Protection","icon":"INV_Shield_06","t":[["shield_spec","Shield Specialization","INV_Shield_06","Reduces all damage taken by {v}%.",0,0,5,null],["anticipation","Anticipation","Spell_Nature_MirrorImage","Increases your maximum health by {v}%.",0,2,5,null],["imp_thunder_clap","Improved Thunder Clap","Ability_ThunderClap","Thunder Clap deals an extra {v}% of your maximum health.",1,0,3,null],["toughness","Toughness","Spell_Holy_Devotion","Regenerate {v}% of your maximum health per second.",1,2,5,null],["heavy_shield","Heavy Shield","INV_Shield_05","Shield Slam deals an extra {v}% of your maximum health.",2,0,3,null],["shockwave","Shockwave","Ability_Warrior_Revenge","Milestone. Each Shield Slam sends a shockwave from its first target: every enemy within 8 yd of it is struck for {v}% of the blow and stunned.",2,1,1,null],["imp_demo_shout","Improved Demoralizing Shout","Ability_Warrior_WarCry","Enemies hit by Demoralizing Shout take {v}% more damage from you for 6 sec.",2,2,3,null],["defiance","Defiance","Ability_Warrior_InnerRage","You deal {v}% more damage for every 10% damage reduction you have.",3,0,3,null],["imp_shield_slam","Improved Shield Slam","Ability_Warrior_ShieldBash","Shield Slam deals {v}% more damage and recovers faster.",3,2,3,null],["shield_mastery","Shield Mastery","Ability_Defend","Shield Slam's shield holds {v}% more of your maximum health.",4,0,3,null],["fortified","Fortified","Ability_Warrior_ShieldWall","Milestone. Every Shield Slam raises a shield of {v}% of your maximum health, stacking up to 30% (42% with Shield Mastery), and while a shield holds, you deal 20% more damage.",4,1,1,"shockwave"],["last_stand","Last Stand","Spell_Holy_AshesToAshes","A blow that would kill you leaves you at 40% health instead, then you answer with a free Shield Slam and a shield of 10% of your maximum health. Once every 90 sec.",5,0,1,null],["unbreakable","Unbreakable","Ability_Warrior_Sunder","Damage reduction past the cap is not wasted: each 1% of it becomes {v}% more damage.",5,2,3,null],["titan","Titan","Ability_Warrior_DefensiveStance","Capstone. You start every run with Shield Slam, your damage reduction can reach 70% instead of 60%, and every spell you cast deals an extra 1.5% of your maximum health, and Shield Slam also strikes for 2% of its target's maximum health.",6,1,1,"fortified"]]}]},{"id":2,"name":"Paladin","trees":[{"tree":"Holy","icon":"Spell_Holy_HolyBolt","t":[["divine_strength","Divine Strength","Ability_GolemThunderClap","Increases all damage by {v}%.",0,1,5,null],["divine_intellect","Divine Intellect","Spell_Nature_Sleep","Regenerate {v} more health per second.",0,2,5,null],["healing_light","Healing Light","Spell_Holy_HolyBolt","Holy Light heals {v}% more.",1,0,3,null],["imp_seal","Improved Seal of Righteousness","Ability_ThunderBolt","Judgement and Exorcism deal {v}% more damage.",1,2,5,null],["divine_favor","Divine Favor","Spell_Holy_Heal","Milestone. You start every run with Holy Shock, and each of its bolts leaps to 2 more enemies for {v}% of it.",2,1,1,null],["unyielding_faith","Unyielding Faith","Spell_Holy_UnyieldingFaith","Reduces all damage taken by {v}%.",2,2,3,null],["holy_power","Holy Power","Spell_Holy_Power","Increases your critical strike chance by {v}%.",3,0,5,null],["lasting_judgement","Lasting Judgement","Spell_Holy_HealingAura","Holy Shock's cooldown is {v}% shorter.",3,2,3,null],["daybreak","Daybreak","Spell_Holy_Excorcism","Milestone. Holy Shock's critical strikes call down a free Holy Wrath around you, at most once every 3 sec.",4,1,1,"divine_favor"],["sanctified_light","Sanctified Light","Spell_Holy_HealingFocus","Holy spells deal {v}% more damage.",4,2,5,null],["holy_guidance","Holy Guidance","Spell_Holy_SealOfSalvation","Increases your maximum health by {v}%.",5,0,3,null],["purifying_power","Purifying Power","Spell_Holy_Purify","Holy Wrath and Consecration reach {v}% farther.",5,2,3,null],["lights_grace","Light's Grace","Spell_Holy_SearingLight","Capstone. A Holy Wrath bursts from you on its own every 14 sec.",6,1,1,"daybreak"]]},{"tree":"Protection","icon":"Spell_Holy_DevotionAura","t":[["imp_devotion","Improved Devotion Aura","Spell_Holy_DevotionAura","Reduces all damage taken by {v}%.",0,0,5,null],["redoubt","Redoubt","Ability_Defend","Increases your maximum health by {v}%.",0,2,5,null],["imp_consecration","Improved Consecration","Spell_Holy_InnerFire","Every tick of Consecration deals an extra {v}% of your maximum health.",1,0,3,null],["spiritual_attunement","Spiritual Attunement","Spell_Holy_BlessedRecovery","{v}% of all the damage you deal heals you.",1,2,3,null],["weighted_hammer","Weighted Hammer","Spell_Holy_SealOfMight","Hammer of Justice deals an extra {v}% of your maximum health.",2,0,3,null],["hallowed_ground","Hallowed Ground","Spell_Holy_SealOfProtection","Milestone. Every Hammer of Justice that lands hallows the ground beneath you: a free Consecration, at most once every 4 sec.",2,1,1,null],["judgement_crusader","Judgement of the Crusader","Spell_Holy_HolySmite","Enemies burning in your Consecration take {v}% more damage from you for 3 sec.",2,2,3,null],["righteous_fury","Righteous Fury","Spell_Holy_SealOfFury","Every spell you cast deals an extra {v}% of your maximum health.",3,0,3,null],["imp_hoj","Improved Hammer of Justice","Spell_Holy_SealOfWrath","Hammer of Justice deals {v}% more damage and recovers faster.",3,2,3,null],["blessed_life","Blessed Life","Spell_Holy_GreaterBlessingofSanctuary","Consecration's shield holds {v}% more of your maximum health.",4,0,3,null],["ardent_defender","Ardent Defender","Spell_Holy_HolyProtection","Milestone. You start every run with Hammer of Justice. Every Consecration raises a shield of {v}% of your maximum health, stacking up to 30% (39% with Blessed Life), and while a shield holds, you deal 20% more damage.",4,1,1,"hallowed_ground"],["divine_intervention","Divine Intervention","Spell_Nature_TimeStop","A blow that would kill you leaves you at 30% health instead, wrapped in a free Divine Shield and a free Consecration. Once every 90 sec.",5,0,1,null],["sacred_duty","Sacred Duty","Spell_Holy_DivineIntervention","While a shield holds, you deal {v}% more damage.",5,2,3,null],["hammer_righteous","Hammer of the Righteous","Spell_Holy_BlessingOfProtection","Capstone. Your maximum health is 15% higher, every spell you cast deals an extra 1% of your maximum health, Hammer of Justice also strikes for 1.5% of its target's maximum health, and a shield that breaks bursts in holy light: half of what it absorbed, up to half the most it held, strikes every enemy within 10 yd.",6,1,1,"ardent_defender"]]},{"tree":"Retribution","icon":"Spell_Holy_AuraOfLight","t":[["imp_might","Improved Blessing of Might","Spell_Holy_FistOfJustice","Increases all damage by {v}%.",0,1,5,null],["benediction","Benediction","Spell_Frost_WindWalkOn","Your cooldowns recover {v}% faster.",0,2,5,null],["imp_judgement","Improved Judgement","Spell_Holy_RighteousFury","Judgement's cooldown is {v}% shorter.",1,0,3,null],["deflection_pal","Deflection","Ability_Parry","Reduces all damage taken by {v}%.",1,2,5,null],["seal_of_command","Seal of Command","Ability_Warrior_InnerRage","Milestone. You start every run with Judgement, and every Judgement also strikes 2 more enemies near its target for {v}% of it.",2,1,1,null],["pursuit","Pursuit of Justice","Spell_Holy_PersuitofJustice","Increases your movement speed by {v}%.",2,2,2,null],["conviction","Conviction","Spell_Holy_RetributionAura","Increases your critical strike chance by {v}%.",3,0,5,null],["righteous_hammer","Righteous Hammer","Ability_ThunderClap","Hammer of Wrath has a {v}% chance to strike its target again.",3,2,3,null],["art_of_war","The Art of War","Spell_Holy_Excorcism_02","Milestone. Your critical strikes have a {v}% chance to hurl a free Exorcism, at most once a second.",4,1,1,"seal_of_command"],["sanctity_aura","Sanctity Aura","Spell_Holy_MindVision","Holy spells deal {v}% more damage.",4,2,3,null],["eye_for_an_eye","Eye for an Eye","Spell_Holy_EyeforanEye","{v}% of the damage enemies deal you in melee is dealt back to them.",5,0,3,null],["vindication","Vindication","Spell_Holy_Vindication","Increases your critical strike damage by {v}%.",5,2,3,null],["divine_storm","Divine Storm","Spell_Holy_SealOfRighteousness","Capstone. You start every run with Exorcism, and every Exorcism bursts on its target, striking every enemy within 5 yd for {v}% of it.",6,1,1,"art_of_war"]]}]},{"id":3,"name":"Hunter","trees":[{"tree":"Beast Mastery","icon":"Ability_Hunter_BeastTaming","t":[["imp_hawk","Improved Aspect of the Hawk","Spell_Nature_RavenForm","Your cooldowns recover {v}% faster.",0,1,5,null],["endurance_training","Endurance Training","Spell_Nature_Reincarnation","Increases your maximum health by {v}%.",0,2,5,null],["imp_monkey","Improved Aspect of the Monkey","Ability_Hunter_AspectOfTheMonkey","Reduces all damage taken by {v}%.",1,0,5,null],["pathfinding","Pathfinding","Ability_Mount_JungleTiger","Increases your movement speed by {v}%.",1,2,2,null],["tame_beast","Tame Beast","Ability_Hunter_BeastTaming","Milestone. A wolf fights at your side, biting what you shoot.",2,1,1,null],["unleashed_fury","Unleashed Fury","Ability_BullRush","Your pets deal {v}% more damage.",2,2,5,null],["ferocity_hunter","Ferocity","INV_Misc_MonsterClaw_04","Increases your and your pets' critical strike chance by {v}%.",3,0,5,null],["spirit_bond","Spirit Bond","Ability_Druid_DemoralizingRoar","Regenerate {v} more health per second.",3,2,2,null],["frenzy_hunter","Frenzy","INV_Misc_MonsterClaw_03","Milestone. Your pets' bites have a {v}% chance to fire a free Multi-Shot.",4,1,1,"tame_beast"],["bestial_discipline","Bestial Discipline","Spell_Nature_AbolishMagic","Your pets deal {v}% more damage.",4,2,3,null],["intimidation","Intimidation","Ability_Devour","Auto Shot and Multi-Shot deal {v}% more damage.",5,0,3,null],["ferocious_inspiration","Ferocious Inspiration","Ability_Hunter_BeastCall","Increases all damage by {v}%.",5,2,3,null],["bestial_wrath","Bestial Wrath","Ability_Druid_FerociousBite","Capstone. A raptor joins your wolf, and your pets' bites tear through 2 more enemies nearby for {v}% of the bite.",6,1,1,"frenzy_hunter"]]},{"tree":"Marksmanship","icon":"Ability_Marksmanship","t":[["lethal_shots","Lethal Shots","Ability_SearingArrow","Increases your critical strike chance by {v}%.",0,1,5,null],["efficiency","Efficiency","Spell_Frost_WizardMark","Your cooldowns recover {v}% faster.",0,2,5,null],["imp_arcane_shot","Improved Arcane Shot","Ability_ImpalingBolt","Arcane Shot's cooldown is {v}% shorter.",1,0,5,null],["imp_serpent_sting","Improved Serpent Sting","Ability_Hunter_Quickshot","Serpent Sting deals {v}% more damage.",1,2,5,null],["piercing_shots","Piercing Shots","Ability_PierceDamage","Milestone. Auto Shot pierces: every arrow also strikes 1 enemy beyond its target for {v}% of it.",2,1,1,null],["mortal_shots","Mortal Shots","INV_Spear_07","Increases your critical strike damage by {v}%.",2,2,5,null],["ranged_spec","Ranged Weapon Specialization","INV_Weapon_Rifle_06","Increases all damage by {v}%.",3,0,5,null],["imp_multi_shot","Improved Multi-Shot","Ability_UpgradeMoonGlaive","Multi-Shot fires at {v} more targets.",3,2,2,null],["rapid_fire","Rapid Fire","Ability_Hunter_RunningShot","Milestone. Every {v}th shot you fire is followed by a free Aimed Shot.",4,1,1,"piercing_shots"],["barrage","Barrage","Ability_Marksmanship","Multi-Shot and Volley deal {v}% more damage.",4,2,3,null],["hawk_eye","Hawk Eye","Ability_TownWatch","You deal {v}% more damage to elites and bosses.",5,0,3,null],["scatter_shot","Scatter Shot","Ability_GolemStormBolt","Concussive Shot and Aimed Shot cooldowns are {v}% shorter.",5,2,3,null],["kill_shot","Kill Shot","INV_Weapon_Rifle_08","Capstone. You start every run with Aimed Shot; its cooldown is {v}% shorter and a killing blow readies it again, at most every 2 sec.",6,1,1,"rapid_fire"]]},{"tree":"Survival","icon":"Ability_Hunter_SwiftStrike","t":[["monster_slaying","Monster Slaying","INV_Misc_Head_Dragon_Black","You deal {v}% more damage to elites and bosses.",0,1,5,null],["deflection_hunter","Deflection","Ability_Parry","Reduces all damage taken by {v}%.",0,2,5,null],["clever_traps","Clever Traps","Spell_Nature_TimeStop","Your traps cover {v}% more ground.",1,0,3,null],["survivalist","Survivalist","Spell_Shadow_Twilight","Increases your maximum health by {v}%.",1,2,5,null],["entrapment","Entrapment","Spell_Nature_StrangleVines","Milestone. Your traps hold what they hit: every hit of a trap has a {v}% chance to root the enemy for 2 sec.",2,1,1,null],["savage_strikes","Savage Strikes","Ability_Racial_BloodRage","Increases your critical strike chance by {v}%.",2,2,3,null],["trap_mastery","Trap Mastery","Ability_Ensnare","Your traps' cooldowns are {v}% shorter.",3,0,3,null],["surefooted","Surefooted","Ability_Kick","Increases your movement speed by {v}%.",3,2,3,null],["explosive_ammo","Explosive Ammunition","Spell_Fire_SelfDestruct","Milestone. Enemies killed by your Auto Shot or Multi-Shot explode for {v}% of their maximum health on everything within 6 yd.",4,1,1,"entrapment"],["killer_instinct","Killer Instinct","Spell_Holy_BlessingOfStamina","Fire spells deal {v}% more damage.",4,2,3,null],["lightning_reflexes","Lightning Reflexes","Spell_Nature_Invisibilty","Increases all damage by {v}%.",5,0,5,null],["counterattack","Counterattack","Ability_Warrior_Challange","When an enemy strikes you in melee, {v}% chance to set off a free Explosive Trap.",5,2,2,null],["wyvern_sting","Wyvern Sting","INV_Spear_02","Capstone. You start every run with Frost Trap, and an Explosive Trap sets itself at your feet every 5 sec.",6,1,1,"explosive_ammo"]]}]},{"id":4,"name":"Rogue","trees":[{"tree":"Assassination","icon":"","t":[["imp_eviscerate","Improved Eviscerate","Ability_Rogue_Eviscerate","Eviscerate deals {v}% more damage.",0,1,5,null],["malice","Malice","Ability_Racial_BloodRage","Increases your critical strike chance by {v}%.",0,2,5,null],["ruthlessness","Ruthlessness","Ability_Druid_Disembowel","You deal {v}% more damage to enemies below 30% health.",1,0,3,null],["murder","Murder","Spell_Shadow_DeathScream","You deal {v}% more damage to elites and bosses.",1,2,5,null],["deadly_poison","Deadly Poison","Ability_Rogue_DualWeild","Milestone. Your strikes poison: every swing and every strike adds Deadly Poison, {v}% of the hit over 6 sec.",2,1,1,null],["lethality","Lethality","Ability_CriticalStrike","Increases your critical strike damage by {v}%.",2,2,5,null],["imp_poisons","Improved Poisons","Ability_Poisons","Rupture deals {v}% more damage.",3,0,5,null],["vile_poisons","Vile Poisons","Ability_Rogue_FeignDeath","Your damage-over-time effects deal {v}% more damage.",3,2,5,null],["mutilate","Mutilate","INV_Weapon_ShortBlade_05","Milestone. Sinister Strike and Backstab strike with both blades: everything they hit is struck again at once for 50% of the blow.",4,1,1,"deadly_poison"],["seal_fate","Seal Fate","Spell_Shadow_ChillTouch","{v}% chance for any spell to strike twice.",4,2,3,null],["vigor","Vigor","Spell_Nature_EarthBindTotem","Regenerate {v} more health per second.",5,0,3,null],["remorseless","Remorseless Attacks","Ability_FiegnDead","Increases all damage by {v}%.",5,2,3,null],["toxic_bloom","Toxic Bloom","Spell_Nature_NullifyPoison","Capstone. Enemies that die poisoned or bleeding burst in a toxic cloud for {v}% of their maximum health on everything within 7 yd.",6,1,1,"mutilate"]]},{"tree":"Combat","icon":"","t":[["precision_rogue","Precision","Ability_Marksmanship","Increases your critical strike chance by {v}%.",0,1,5,null],["lightning_reflexes_rogue","Lightning Reflexes","Spell_Nature_Invisibilty","Reduces all damage taken by {v}%.",0,2,5,null],["imp_sinister","Improved Sinister Strike","Spell_Shadow_RitualOfSacrifice","Sinister Strike deals {v}% more damage.",1,0,3,null],["endurance_rogue","Endurance","Spell_Shadow_ShadowWard","Your cooldowns recover {v}% faster.",1,2,5,null],["blade_flurry_talent","Blade Flurry","Ability_Warrior_PunishingBlow","Milestone. Sinister Strike and Eviscerate fly on: each hit also strikes 2 more enemies near its target for {v}% of it.",2,1,1,null],["dual_wield_rogue","Dual Wield Specialization","Ability_DualWield","Increases all damage by {v}%.",2,2,5,null],["sword_spec_rogue","Sword Specialization","INV_Sword_27","{v}% chance for any spell to strike twice.",3,0,5,null],["weapon_expertise","Weapon Expertise","Spell_Holy_BlessingOfStrength","Increases all damage by {v}%.",3,2,3,null],["adrenaline","Adrenaline Rush","Spell_Shadow_ShadowWordDominate","Milestone. Every {v}th kill floods you with adrenaline: a free Adrenaline Rush, your cooldowns 60% faster for 11 sec.",4,1,1,"blade_flurry_talent"],["aggression","Aggression","Ability_Racial_Avatar","Sinister Strike and Eviscerate deal {v}% more damage.",4,2,3,null],["imp_slice_dice","Improved Slice and Dice","Ability_Rogue_SliceDice","Slice and Dice and Adrenaline Rush last {v}% longer.",5,0,3,null],["riposte","Riposte","Ability_Warrior_Challange","When an enemy strikes you in melee, {v}% chance to answer with a free Ghostly Strike.",5,2,2,null],["killing_spree","Killing Spree","Ability_Rogue_Sprint","Capstone. Sinister Strike strikes {v} more enemy, and you strike on your own: a free Sinister Strike every 3 sec.",6,1,1,"adrenaline"]]},{"tree":"Subtlety","icon":"Ability_Stealth","t":[["master_deception","Master of Deception","Spell_Shadow_Charm","Increases your movement speed by {v}%.",0,1,5,null],["opportunity","Opportunity","Ability_Warrior_WarCry","Backstab deals {v}% more damage.",0,2,5,null],["elusiveness","Elusiveness","Spell_Magic_LesserInvisibilty","Reduces all damage taken by {v}%.",1,0,3,null],["initiative","Initiative","Spell_Shadow_Fumble","Increases your luck by {v}%.",1,2,5,null],["cheat_death","Cheat Death","Ability_Rogue_FeignDeath","Milestone. A blow that would kill you leaves you at 25% health instead, and you fade into the shadows: nothing can touch you for 3 sec. Once every 2.5 min.",2,1,1,null],["imp_ambush","Improved Ambush","Ability_Rogue_Ambush","Increases your critical strike damage by {v}%.",2,2,3,null],["serrated_blades","Serrated Blades","INV_Sword_17","Your damage-over-time effects deal {v}% more damage.",3,0,3,null],["setup","Setup","Spell_Nature_MirrorImage","Kidney Shot and Gouge cooldowns are {v}% shorter.",3,2,3,null],["preparation","Preparation","Spell_Shadow_AntiShadow","Milestone. A free Gouge stuns the enemies around you every 6 sec.",4,1,1,"cheat_death"],["dirty_deeds","Dirty Deeds","Spell_Shadow_SummonSuccubus","You deal {v}% more damage to stunned, rooted, slowed or fleeing enemies.",4,2,3,null],["deadliness","Deadliness","INV_Weapon_Crossbow_07","Increases all damage by {v}%.",5,0,5,null],["heightened_senses","Heightened Senses","Ability_Ambush","Increases your maximum health by {v}%.",5,2,2,null],["shadow_dance","Shadow Dance","Spell_Shadow_LifeDrain","Capstone. You start every run with Backstab, and Backstab and Eviscerate splash {v}% of their damage onto every enemy within 5 yd of their target.",6,1,1,"preparation"]]}]},{"id":5,"name":"Priest","trees":[{"tree":"Discipline","icon":"Spell_Holy_WordFortitude","t":[["unbreakable_will","Unbreakable Will","Spell_Magic_MageArmor","Reduces all damage taken by {v}%.",0,1,5,null],["wand_spec","Wand Specialization","INV_Wand_01","Smite deals {v}% more damage.",0,2,5,null],["imp_pw_shield","Improved Power Word: Shield","Spell_Holy_PowerWordShield","Power Word: Shield absorbs {v}% more.",1,0,3,null],["martyrdom","Martyrdom","Spell_Nature_Tranquility","Increases your maximum health by {v}%.",1,2,5,null],["divine_aegis","Divine Aegis","Spell_Holy_DivineIntervention","Milestone. You start every run with Power Word: Shield, and a shield on you that breaks bursts in holy light: {v}% of what it absorbed strikes every enemy within 10 yd.",2,1,1,null],["mental_agility","Mental Agility","Ability_Hibernation","Your cooldowns recover {v}% faster.",2,2,5,null],["meditation","Meditation","Spell_Nature_Sleep","Regenerate {v} more health per second.",3,0,3,null],["mental_strength","Mental Strength","Spell_Nature_EnchantArmor","Increases all damage by {v}%.",3,2,5,null],["rapture","Rapture","Spell_Holy_PowerInfusion","Milestone. A broken Power Word: Shield is raised again at once, at most once every 15 sec.",4,1,1,"divine_aegis"],["force_of_will","Force of Will","Spell_Nature_SlowingTotem","Increases your critical strike chance by {v}%.",4,2,5,null],["silent_resolve","Silent Resolve","Spell_Nature_ManaRegenTotem","Increases your luck by {v}%.",5,0,3,null],["imp_inner_fire","Improved Inner Fire","Spell_Holy_InnerFire","Power Word: Shield's cooldown is {v}% shorter.",5,2,3,null],["penance","Penance","Spell_Holy_SearingLight","Capstone. You strike out on your own: a free Penance about every 3 sec, three bolts of holy light at the nearest enemies.",6,1,1,"rapture"]]},{"tree":"Holy","icon":"","t":[["holy_spec","Holy Specialization","Spell_Holy_SealOfSalvation","Increases your critical strike chance by {v}%.",0,1,5,null],["imp_renew","Improved Renew","Spell_Holy_Renew","Renew heals {v}% more.",0,2,5,null],["divine_fury","Divine Fury","Spell_Holy_SealOfWrath","Smite and Holy Fire cooldowns are {v}% shorter.",1,0,5,null],["holy_reach","Holy Reach","Spell_Holy_Purify","Holy Nova reaches {v}% farther.",1,2,3,null],["holy_nova_talent","Radiance","Spell_Holy_HolyNova","Milestone. A Holy Nova bursts from you on its own every 24 sec.",2,1,1,null],["inspiration","Inspiration","Spell_Holy_LayOnHands","Your Holy critical strikes heal you for {v}% of your maximum health, at most once a second.",2,2,3,null],["searing_light","Searing Light","Spell_Holy_SearingLightPriest","Smite and Holy Fire deal {v}% more damage.",3,0,3,null],["spiritual_guidance","Spiritual Guidance","Spell_Holy_SpiritualGuidence","Increases all damage by {v}%.",3,2,5,null],["holy_fire_talent","Purifying Flame","Spell_Holy_SearingLight","Milestone. Smite and Holy Fire critical strikes set their target alight for {v}% of the hit over 6 sec.",4,1,1,"holy_nova_talent"],["spiritual_healing","Spiritual Healing","Spell_Nature_MoonGlow","Your heals and shields are {v}% stronger.",4,2,3,null],["blessed_recovery","Blessed Recovery","Spell_Holy_BlessedRecovery","Increases your maximum health by {v}%.",5,0,3,null],["holy_concentration","Holy Concentration","Spell_Holy_SpellWarding","Holy spells deal {v}% more damage.",5,2,3,null],["chastise","Chastise","Spell_Holy_SealOfWrath","Capstone. Smite strikes 1 more enemy, and every Smite critical strike sets off a free Holy Nova.",6,1,1,"holy_fire_talent"]]},{"tree":"Shadow","icon":"Spell_Shadow_ShadowWordPain","t":[["spirit_tap","Spirit Tap","Spell_Shadow_Requiem","Every kill heals you for {v} health.",0,1,5,null],["blackout","Blackout","Spell_Shadow_GatherShadows","Your Shadow spells have a {v}% chance to stun what they hit for 1.5 sec.",0,2,5,null],["imp_swp","Improved Shadow Word: Pain","Spell_Shadow_ShadowWordPain","Shadow Word: Pain lasts {v}% longer.",1,0,2,null],["shadow_focus","Shadow Focus","Spell_Shadow_BurningSpirit","Increases your critical strike chance by {v}%.",1,2,5,null],["shadow_weaving","Shadow Weaving","Spell_Shadow_BlackPlague","Milestone. Your Shadow spells also strike what they hit for {v}% of its maximum health.",2,1,1,null],["imp_mind_blast","Improved Mind Blast","Spell_Shadow_UnholyFrenzy","Mind Blast's cooldown is {v}% shorter.",2,2,5,null],["darkness","Darkness","Spell_Shadow_Twilight","Shadow spells deal {v}% more damage.",3,0,5,null],["imp_psychic_scream","Improved Psychic Scream","Spell_Shadow_PsychicScream","Psychic Scream's cooldown is {v}% shorter.",3,2,2,null],["shadowy_apparitions","Shadowy Apparitions","Spell_Shadow_Haunting","Milestone. You start every run with Shadow Word: Pain, and its ticks have a {v}% chance to loose a shadowy apparition: a free Mind Blast, at most twice a second.",4,1,1,"shadow_weaving"],["shadow_reach","Shadow Reach","Spell_Shadow_ChillTouch","Mind Flay reaches {v}% farther.",4,2,3,null],["shadow_power","Shadow Power","Spell_Shadow_SealOfKings","Your damage-over-time effects deal {v}% more damage.",5,0,3,null],["imp_vampiric","Improved Vampiric Embrace","Spell_Shadow_ImprovedVampiricEmbrace","{v}% of all the damage you deal heals you.",5,2,3,null],["shadowform","Shadowform","Spell_Shadow_Shadowform","Capstone. You take on Shadowform for the whole run, and when an enemy dies with Shadow Word: Pain on it, it bursts for {v}% of its maximum health on everything within 6 yd and the pain jumps to the enemy nearest it.",6,1,1,"shadowy_apparitions"]]}]},{"id":7,"name":"Shaman","trees":[{"tree":"Elemental","icon":"Spell_Nature_Lightning","t":[["convection","Convection","Spell_Nature_WispSplode","Your cooldowns recover {v}% faster.",0,1,5,null],["concussion","Concussion","Spell_Fire_Fireball","Increases all damage by {v}%.",0,2,5,null],["earths_grasp","Elemental Warding","Spell_Nature_StoneClawTotem","Reduces all damage taken by {v}%.",1,0,3,null],["call_of_flame","Call of Flame","Spell_Fire_Immolation","Fire Nova, Magma Totem and Flame Shock deal {v}% more damage.",1,2,3,null],["lightning_overload","Lightning Overload","Spell_Nature_CallStorm","Milestone. Lightning Bolt and Chain Lightning have a {v}% chance to strike again for free.",2,1,1,null],["reverberation","Reverberation","Spell_Frost_FrostWard","Your shocks' cooldowns are {v}% shorter.",2,2,5,null],["call_of_thunder","Call of Thunder","Spell_Nature_Lightning","Increases your critical strike chance by {v}%.",3,0,5,null],["imp_fire_totems","Improved Fire Totems","Spell_Fire_SealOfFire","Searing and Magma Totem cooldowns are {v}% shorter.",3,2,2,null],["elemental_fury","Elemental Fury","Spell_Fire_Volcano","Milestone. Chain Lightning jumps to 3 more enemies and loses nothing with each jump.",4,1,1,"lightning_overload"],["lightning_mastery","Lightning Mastery","Spell_Lightning_LightningBolt01","Nature spells deal {v}% more damage.",4,2,5,null],["storm_reach","Storm Reach","Spell_Nature_StormReach","Chain Lightning jumps {v}% farther.",5,0,2,null],["elemental_devastation","Elemental Devastation","Spell_Fire_ElementalDevastation","Increases your critical strike damage by {v}%.",5,2,3,null],["elemental_mastery","Elemental Mastery","Spell_Nature_WispHeal","Capstone. You start every run with Chain Lightning, and a second Chain Lightning casts itself every 3 sec.",6,1,1,"elemental_fury"]]},{"tree":"Enhancement","icon":"Spell_Nature_LightningShield","t":[["ancestral_knowledge","Ancestral Knowledge","Spell_Shadow_GrimWard","Increases your maximum health by {v}%.",0,1,5,null],["shield_spec_shaman","Shield Specialization","INV_Shield_06","Reduces all damage taken by {v}%.",0,2,5,null],["guardian_totems","Guardian Totems","Spell_Nature_StoneSkinTotem","Your totems last {v}% longer.",1,0,2,null],["thundering_strikes","Thundering Strikes","Ability_ThunderBolt","Increases your critical strike chance by {v}%.",1,2,5,null],["windfury","Windfury","Spell_Nature_Cyclone","Milestone. Your Lightning Bolts, Earth Shocks and Frost Shocks have a {v}% chance to strike twice more at once.",2,1,1,null],["two_hand_shaman","Improved Lightning Bolt","Spell_Nature_Lightning","Lightning Bolt deals {v}% more damage.",2,2,5,null],["elemental_weapons","Elemental Weapons","Spell_Fire_FlameTounge","Flame Shock and Frost Shock deal {v}% more damage.",3,0,3,null],["anticipation_shaman","Anticipation","Spell_Nature_MirrorImage","Reduces all damage taken by {v}%.",3,2,3,null],["maelstrom","Maelstrom Weapon","Spell_Lightning_LightningBolt01","Milestone. Every {v}th spell you cast is followed by a free Chain Lightning.",4,1,1,"windfury"],["enhancing_totems","Enhancing Totems","Spell_Nature_EarthBindTotem","Your totems deal {v}% more damage.",4,2,3,null],["flurry_shaman","Flurry","Ability_GhoulFrenzy","A critical strike sends you into a flurry: cooldowns recover {v}% faster for 5 sec.",5,0,3,null],["parry_shaman","Parry","Ability_Parry","Increases all damage by {v}%.",5,2,3,null],["stormstrike","Feral Spirit","Spell_Nature_SpiritWolf","Capstone. Two spirit wolves fight beside you, and their bites carry Windfury: a {v}% chance to strike twice more at once.",6,1,1,"maelstrom"]]},{"tree":"Restoration","icon":"Spell_Nature_MagicImmunity","t":[["imp_healing_wave","Improved Healing Wave","Spell_Nature_MagicImmunity","Healing Wave's cooldown is {v}% shorter.",0,1,5,null],["tidal_focus","Tidal Focus","Spell_Frost_ManaRecharge","Regenerate {v} more health per second.",0,2,5,null],["totemic_focus","Totemic Focus","Spell_Nature_MoonGlow","Your totems' cooldowns are {v}% shorter.",1,0,5,null],["natures_guidance","Nature's Guidance","Spell_Frost_Stun","Increases your critical strike chance by {v}%.",1,2,3,null],["twin_totems","Call of the Elements","Spell_Totem_WardOfDraining","Milestone. You start every run with Searing Totem, and every totem you set down sets a second one beside it.",2,1,1,null],["restorative_totems","Restorative Totems","Spell_Nature_ManaRegenTotem","Your totems deal {v}% more damage.",2,2,3,null],["tidal_mastery","Tidal Mastery","Spell_Nature_Tranquility","Increases all damage by {v}%.",3,0,5,null],["healing_way","Healing Way","Spell_Nature_HealingWay","Healing Wave heals {v}% more.",3,2,3,null],["reincarnation","Reincarnation","Spell_Nature_Reincarnation","Milestone. A blow that would kill you leaves you at 50% health instead, once every 2 min.",4,1,1,"twin_totems"],["purification","Purification","Spell_Frost_WizardMark","Increases your maximum health by {v}%.",4,2,5,null],["totemic_mastery","Totemic Mastery","Spell_Nature_NullWard","Magma Totem reaches {v}% farther and Searing Totem fires at more targets.",5,0,3,null],["ancestral_healing","Ancestral Healing","Spell_Nature_UndyingStrength","Reduces all damage taken by {v}%.",5,2,3,null],["totemic_call","Totemic Wrath","Spell_Fire_SealOfFire","Capstone. You start every run with Magma Totem, and a second Searing Totem drops on its own every 14 sec.",6,1,1,"reincarnation"]]}]},{"id":8,"name":"Mage","trees":[{"tree":"Arcane","icon":"Spell_Holy_MagicalSentry","t":[["arcane_focus","Arcane Focus","Spell_Holy_Devotion","Arcane spells deal {v}% more damage.",0,1,5,null],["arcane_subtlety","Arcane Subtlety","Spell_Holy_DispelMagic","Increases your luck by {v}%.",0,2,5,null],["imp_arcane_explosion","Improved Arcane Explosion","Spell_Nature_WispSplode","Arcane Explosion reaches {v}% farther.",1,0,3,null],["magic_absorption","Magic Absorption","Spell_Nature_AstralRecalGroup","Increases your maximum health by {v}%.",1,2,5,null],["arcane_concentration","Arcane Concentration","Spell_Shadow_ManaBurn","Milestone. Clearcasting: every spell you cast has a {v}% chance to set off a free Arcane Explosion.",2,1,1,null],["arcane_meditation","Arcane Meditation","Spell_Shadow_SiphonMana","Regenerate {v} more health per second.",2,2,3,null],["arcane_mind","Arcane Mind","Spell_Shadow_Charm","Your cooldowns recover {v}% faster.",3,0,5,null],["imp_blink","Improved Blink","Spell_Arcane_Blink","Increases your movement speed by {v}%.",3,2,3,null],["presence_of_mind","Presence of Mind","Spell_Nature_EnchantArmor","Milestone. Arcane Missiles fires {v} more missiles, and each missile leaps on to another enemy for its full damage.",4,1,1,"arcane_concentration"],["arcane_instability","Arcane Instability","Spell_Shadow_Teleport","Increases all damage and your critical strike chance by {v}%.",4,2,3,null],["arcane_fortitude","Arcane Fortitude","Spell_Arcane_ArcaneResilience","Reduces all damage taken by {v}%.",5,0,3,null],["arcane_reach","Arcane Reach","Spell_Arcane_StarFire","{v}% chance for any spell to strike twice.",5,2,3,null],["arcane_power","Arcane Power","Spell_Nature_Lightning","Capstone. You start every run with Arcane Missiles instead of Fireball, and your spells strike twice {v}% more often. Your echoes cascade: a spell that strikes twice by chance rolls again to strike once more, up to 3 more times in a row.",6,1,1,"presence_of_mind"]]},{"tree":"Fire","icon":"Spell_Fire_FireBolt02","t":[["imp_fireball","Improved Fireball","Spell_Fire_FlameBolt","Fireball's cooldown is {v}% shorter.",0,1,5,null],["impact","Impact","Spell_Fire_MeteorStorm","Your Fire spells have a {v}% chance to stun what they hit for 1 sec.",0,2,5,null],["flame_throwing","Flame Throwing","Spell_Fire_Flare","Fire spells cover {v}% more ground.",1,0,2,null],["imp_flamestrike","Improved Flamestrike","Spell_Fire_SoulBurn","Flamestrike and Blast Wave deal {v}% more damage.",1,2,5,null],["ignite","Ignite","Spell_Fire_Incinerate","Milestone. Your Fire critical strikes ignite the target for {v}% of the hit over 4 sec.",2,1,1,null],["incinerate","Incinerate","Spell_Fire_FlameShock","Fire Blast deals {v}% more damage.",2,2,3,null],["master_elements","Master of Elements","Spell_Fire_MasterOfElements","Increases your critical strike damage by {v}%.",3,0,3,null],["critical_mass","Critical Mass","Spell_Nature_WispHeal","Increases your critical strike chance by {v}%.",3,2,3,null],["hot_streak","Hot Streak","Spell_Fire_Fireball","Milestone. Every fourth Fire critical strike casts a free Pyroblast, at most twice a second.",4,1,1,"ignite"],["fire_power","Fire Power","Spell_Fire_Immolation","Fire spells deal {v}% more damage.",4,2,5,null],["burning_soul","Burning Soul","Spell_Fire_Fire","Increases your maximum health by {v}%.",5,0,3,null],["imp_blast_wave","Improved Blast Wave","Spell_Holy_Excorcism_02","Blast Wave and Pyroblast cooldowns are {v}% shorter.",5,2,3,null],["pyroclasm","Pyroclasm","Spell_Fire_Fireball02","Capstone. You start every run with Pyroblast, and enemies killed by your Fire spells explode for {v}% of their maximum health on everything within 6 yd, at most 3 a second.",6,1,1,"hot_streak"]]},{"tree":"Frost","icon":"Spell_Frost_FrostBolt02","t":[["frost_warding","Frost Warding","Spell_Frost_FrostWard","Reduces all damage taken by {v}%.",0,1,5,null],["imp_frostbolt","Improved Frostbolt","Spell_Frost_FrostBolt02","Frostbolt's cooldown is {v}% shorter.",0,2,5,null],["elemental_precision","Elemental Precision","Spell_Ice_MagicDamage","Increases all damage by {v}%.",1,0,3,null],["ice_shards","Ice Shards","Spell_Frost_IceShard","Increases your critical strike damage by {v}%.",1,2,5,null],["frostbite","Frostbite","Spell_Frost_FrostArmor","Milestone. Your Frost spells have a {v}% chance to freeze what they hit in place for 1.5 sec.",2,1,1,null],["piercing_ice","Piercing Ice","Spell_Frost_Frostbolt","Frost spells deal {v}% more damage.",2,2,3,null],["shatter","Shatter","Spell_Frost_FrostShock","You deal {v}% more damage to frozen, stunned, slowed or fleeing enemies.",3,0,5,null],["arctic_reach","Arctic Reach","Spell_Shadow_DarkRitual","Frost Nova, Cone of Cold and Blizzard reach {v}% farther.",3,2,2,null],["splitting_ice","Splitting Ice","Spell_Frost_WizardMark","Milestone. Frostbolt splinters on impact: {v}% of its damage to every enemy within 5 yd of its target.",4,1,1,"frostbite"],["frost_channeling","Frost Channeling","Spell_Frost_Stun","Your cooldowns recover {v}% faster.",4,2,3,null],["permafrost","Permafrost","Spell_Frost_Wisp","Increases your maximum health by {v}%.",5,0,3,null],["imp_ice_barrier","Improved Ice Barrier","Spell_Ice_Lament","Ice Barrier absorbs {v}% more.",5,2,3,null],["water_elemental","Summon Water Elemental","Spell_Frost_SummonWaterElemental","Capstone. You start every run with Frostbolt instead of Fireball. A Water Elemental fights at your side, hurling Frostbolts, and a free Frost Nova bursts from you every 8 sec.",6,1,1,"splitting_ice"]]}]},{"id":9,"name":"Warlock","trees":[{"tree":"Affliction","icon":"Spell_Shadow_DeathCoil","t":[["suppression","Suppression","Spell_Shadow_UnsummonBuilding","Increases your luck by {v}%.",0,1,5,null],["imp_corruption","Shadow Embrace","Spell_Shadow_AbominationExplosion","Your damage-over-time effects deal {v}% more damage.",0,2,5,null],["imp_coa","Improved Curse of Agony","Spell_Shadow_CurseOfSargeras","Curse of Agony deals {v}% more damage.",1,0,3,null],["imp_drain_life","Improved Drain Life","Spell_Shadow_LifeDrain02","Drain Life deals {v}% more damage.",1,2,5,null],["nightfall","Nightfall","Spell_Shadow_Twilight","Milestone. Your Shadow Bolts carry the night: each one that lands corrupts its target for {v}% of the bolt over 12 sec, and every tick of Corruption has a 2% chance to fire a free Shadow Bolt, at most twice a second.",2,1,1,null],["fel_concentration","Fel Concentration","Spell_Shadow_FingerOfDeath","Your damage-over-time effects last {v}% longer.",2,2,3,null],["grim_reach","Grim Reach","Spell_Shadow_CallofBone","Your damage-over-time spells take {v} more target.",3,0,1,null],["shadow_mastery","Shadow Mastery","Spell_Shadow_ShadeTrueSight","Shadow spells deal {v}% more damage.",3,2,5,null],["contagion","Contagion","Spell_Shadow_PlagueCloud","Milestone. When an enemy dies with Corruption or Curse of Agony on it, each jumps to the enemy nearest it.",4,1,1,"nightfall"],["amplify_curse","Amplify Curse","Spell_Shadow_Contagion","Curse of Agony's cooldown is {v}% shorter.",4,2,3,null],["siphon_life","Siphon Life","Spell_Shadow_Requiem","Every tick of your damage-over-time effects heals you for 1% of it.",5,0,1,null],["dark_pact","Dark Pact","Spell_Shadow_DarkRitual","Increases your maximum health by {v}%.",5,2,3,null],["seed_of_corruption","Seed of Corruption","Spell_Shadow_CurseOfMannoroth","Capstone. You start every run with Corruption, and enemies that die afflicted by your damage-over-time effects burst for {v}% of their maximum health on everything within 6 yd.",6,1,1,"contagion"]]},{"tree":"Demonology","icon":"Spell_Shadow_Metamorphosis","t":[["demonic_embrace","Demonic Embrace","Spell_Shadow_Metamorphosis","Increases your maximum health by {v}%.",0,1,5,null],["fel_intellect","Fel Intellect","Spell_Holy_MagicalSentry","Regenerate {v} more health per second.",0,2,5,null],["fel_stamina","Fel Stamina","Spell_Shadow_AntiShadow","Reduces all damage taken by {v}%.",1,0,3,null],["imp_health_funnel","Improved Health Funnel","Spell_Shadow_LifeDrain","Death Coil and Drain Life cooldowns are {v}% shorter.",1,2,5,null],["summon_imp","Summon Imp","Spell_Shadow_SummonImp","Milestone. An Imp fights at your side, hurling bolts of fire.",2,1,1,null],["unholy_power","Unholy Power","Spell_Shadow_ShadowWordDominate","Your demons deal {v}% more damage.",2,2,5,null],["imp_succubus","Improved Succubus","Spell_Shadow_SummonSuccubus","Increases your critical strike chance by {v}%.",3,0,3,null],["master_demonologist","Master Demonologist","Spell_Shadow_ShadowPact","Increases all damage by {v}%.",3,2,5,null],["demonic_pact","Demonic Pact","Spell_Shadow_SummonFelHunter","Milestone. Each kill has an {v}% chance to tear open a rift: an Imp leaps out and fights beside you for 15 sec, up to 5 at once.",4,1,1,"summon_imp"],["demonic_knowledge","Demonic Knowledge","Spell_Shadow_ImprovedVampiricEmbrace","Your demons deal {v}% more damage.",4,2,3,null],["imp_enslave","Improved Enslave Demon","Spell_Shadow_EnslaveDemon","Your cooldowns recover {v}% faster.",5,0,3,null],["demonic_sacrifice","Demonic Sacrifice","Spell_Shadow_PsychicScream","Your demons deal {v}% more damage.",5,2,3,null],["felguard","Summon Felguard","Spell_Shadow_SummonInfernal","Capstone. A Felguard joins your demons, and every demon's blow cleaves 2 more enemies near its target for {v}% of it.",6,1,1,"demonic_pact"]]},{"tree":"Destruction","icon":"Spell_Shadow_RainOfFire","t":[["imp_shadow_bolt","Improved Shadow Bolt","Spell_Shadow_ShadowBolt","Shadow Bolt deals {v}% more damage.",0,1,5,null],["cataclysm","Cataclysm","Spell_Fire_WindsofWoe","Your cooldowns recover {v}% faster.",0,2,5,null],["bane","Bane","Spell_Shadow_DeathPact","Shadow Bolt and Immolate cooldowns are {v}% shorter.",1,0,5,null],["aftermath","Aftermath","Spell_Fire_Fire","Your Fire spells have a {v}% chance to slow what they hit by 40% for 3 sec.",1,2,5,null],["shadowburn","Shadow Cleave","Spell_Shadow_ScourgeBuild","Milestone. Shadow Bolt splits: every bolt that lands forks to 2 more enemies for {v}% of it.",2,1,1,null],["devastation","Devastation","Spell_Fire_FlameShock","Increases your critical strike chance by {v}%.",2,2,5,null],["destructive_reach","Destructive Reach","Spell_Shadow_CorpseExplode","Rain of Fire and Hellfire reach {v}% farther.",3,0,3,null],["imp_searing_pain","Improved Searing Pain","Spell_Fire_SoulBurn","Searing Pain and Immolate deal {v}% more damage.",3,2,3,null],["conflagrate","Conflagrate","Spell_Fire_Fireball","Milestone. Shadow Bolt and Searing Pain make an Immolated enemy explode: {v}% of the hit to every enemy within 6 yd of it.",4,1,1,"shadowburn"],["emberstorm","Emberstorm","Spell_Fire_SelfDestruct","Fire spells deal {v}% more damage.",4,2,5,null],["ruin","Ruin","Spell_Shadow_ShadowWordPain","Increases your critical strike damage by {v}%.",5,0,3,null],["intensity","Intensity","Spell_Fire_LavaSpawn","Increases your maximum health by {v}%.",5,2,3,null],["rain_of_chaos","Rain of Chaos","Spell_Shadow_RainOfFire","Capstone. A second Rain of Fire falls on its own every 13 sec, and its burning ground slows what it touches.",6,1,1,"conflagrate"]]}]},{"id":11,"name":"Druid","trees":[{"tree":"Balance","icon":"Spell_Nature_StarFall","t":[["imp_wrath","Improved Wrath","Spell_Nature_AbolishMagic","Wrath's cooldown is {v}% shorter.",0,1,5,null],["natures_grasp","Nature's Grasp","Spell_Nature_NaturesWrath","When an enemy strikes you in melee, {v}% chance to cast a free Entangling Roots.",0,2,3,null],["imp_moonfire","Improved Moonfire","Spell_Nature_StarFall","Moonfire deals {v}% more damage.",1,0,5,null],["natural_weapons","Natural Weapons","INV_Staff_01","Increases all damage by {v}%.",1,2,5,null],["omen_of_clarity","Omen of Clarity","Spell_Nature_CrystalBall","Milestone. Every spell you cast has an {v}% chance to call down a free Starfire.",2,1,1,null],["vengeance_druid","Vengeance","Spell_Nature_Purge","Increases your critical strike damage by {v}%.",2,2,5,null],["imp_starfire","Improved Starfire","Spell_Arcane_StarFire","Starfire's cooldown is {v}% shorter.",3,0,3,null],["moonglow","Moonglow","Spell_Nature_Sentinal","Your cooldowns recover {v}% faster.",3,2,3,null],["starfall","Starfall","Spell_Arcane_StarFire","Milestone. Stars fall around you: a free Starfire every 4 sec.",4,1,1,"omen_of_clarity"],["imp_hurricane","Gale Winds","Spell_Nature_Cyclone","Hurricane reaches {v}% farther.",4,2,3,null],["moonfury","Moonfury","Spell_Nature_MoonGlow","Arcane and Nature spells deal {v}% more damage.",5,0,5,null],["natures_reach","Nature's Reach","Spell_Nature_NatureTouchGrow","Increases your critical strike chance by {v}%.",5,2,2,null],["force_of_nature","Force of Nature","Spell_Nature_ForceOfNature","Capstone. Two treants fight at your side, and you start every run with Moonfire.",6,1,1,"starfall"]]},{"tree":"Feral Combat","icon":"Ability_Racial_BearForm","t":[["ferocity_druid","Ferocity","Ability_Hunter_Pet_Hyena","Swipe deals {v}% more damage.",0,1,5,null],["feral_aggression","Feral Aggression","Ability_Druid_DemoralizingRoar","Reduces all damage taken by {v}%.",0,2,5,null],["feral_instinct","Feral Instinct","Ability_Ambush","Increases your maximum health by {v}%.",1,0,3,null],["brutal_impact","Brutal Impact","Ability_Druid_Bash","Increases your movement speed by {v}%.",1,2,5,null],["rake","Rake","Ability_Druid_Disembowel","Milestone. You start every run with Swipe, and everything it hits bleeds for {v}% of the blow over 6 sec.",2,1,1,null],["sharpened_claws","Sharpened Claws","INV_Misc_MonsterClaw_04","Increases your critical strike chance by {v}%.",2,2,3,null],["predatory_strikes","Predatory Strikes","Ability_Hunter_Pet_Cat","Swipe's cooldown is {v}% shorter.",3,0,3,null],["thick_hide","Thick Hide","INV_Misc_Pelt_Bear_03","Reduces all damage taken by {v}%.",3,2,3,null],["blood_frenzy","Blood Frenzy","Ability_GhoulFrenzy","Milestone. Your critical strikes rip the target open: it bleeds for {v}% of the hit over 6 sec.",4,1,1,"rake"],["savage_fury","Savage Fury","Ability_Druid_Ravage","Swipe reaches {v}% farther.",4,2,3,null],["heart_of_wild","Heart of the Wild","Spell_Holy_BlessingOfAgility","Increases all damage by {v}%.",5,0,5,null],["primal_fury","Primal Fury","Ability_Racial_Cannibalize","Every kill heals you for {v} health.",5,2,2,null],["leader_of_pack","Leader of the Pack","Spell_Nature_UnyeildingStamina","Capstone. A free Swipe tears around you every 5 sec, and every enemy Swipe hits heals you for 0.15% of your maximum health.",6,1,1,"blood_frenzy"]]},{"tree":"Restoration","icon":"Spell_Nature_HealingTouch","t":[["imp_motw","Improved Mark of the Wild","Spell_Nature_Regeneration","Increases your maximum health by {v}%.",0,1,5,null],["furor","Furor","Spell_Holy_BlessingOfStamina","Regenerate {v} more health per second.",0,2,5,null],["imp_healing_touch","Improved Healing Touch","Spell_Nature_HealingTouch","Regrowth and Rejuvenation heal {v}% more.",1,0,5,null],["natures_focus","Nature's Focus","Spell_Nature_HealingWaveGreater","Your cooldowns recover {v}% faster.",1,2,5,null],["swiftmend","Swiftmend","INV_Relics_IdolofRejuvenation","Milestone. Falling below 40% health makes a free Regrowth bloom on you, once every 8 sec.",2,1,1,null],["reflection","Reflection","Spell_Frost_WindWalkOn","Regenerate {v} more health per second.",2,2,3,null],["tranquil_spirit","Tranquil Spirit","Spell_Holy_ElunesGrace","Increases all damage by {v}%.",3,0,5,null],["imp_rejuvenation","Improved Rejuvenation","Spell_Nature_Rejuvenation","Rejuvenation's cooldown is {v}% shorter.",3,2,3,null],["tranquility","Tranquility","Spell_Nature_Tranquility","Milestone. Every heal you cast also strikes every enemy within 12 yd for {v}% of the healing as Nature damage.",4,1,1,"swiftmend"],["gift_of_nature","Gift of Nature","Spell_Nature_ProtectionformNature","Your heals and shields are {v}% stronger.",4,2,5,null],["imp_tranquility","Improved Tranquility","Spell_Nature_Tranquility","Reduces all damage taken by {v}%.",5,0,3,null],["natural_shapeshifter","Natural Shapeshifter","Spell_Nature_WispSplode","Insect Swarm and Moonfire deal {v}% more damage.",5,2,3,null],["tree_of_life","Tree of Life","Spell_Nature_ResistNature","Capstone. Healing beyond your maximum health becomes a shield, up to 20% of it, and a free Rejuvenation blooms on you every 6 sec.",6,1,1,"tranquility"]]}]}]</script>
+<script>
+"use strict";
+/* ================== Formato RSE1 ================== */
+const RSE = (() => {
+  const KEY = hex("617a65726f74682d7375727669766f72732f736176652f76312f9c4e27d16af013b85de2710ca936c48f");
+  const PREFIX = "RSE1:";
+  const enc = s => { const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i) & 0xff; return b; };
+  function hex(h){ const b = new Uint8Array(h.length/2); for (let i=0;i<b.length;i++) b[i]=parseInt(h.substr(i*2,2),16); return b; }
+  function cat(...a){ let n=0; for(const x of a) n+=x.length; const o=new Uint8Array(n); let p=0; for(const x of a){o.set(x,p);p+=x.length;} return o; }
+  function sha1(m){
+    const ml = m.length, nb = ((ml + 8) >> 6) + 1, w = new Uint32Array(nb * 16);
+    for (let i = 0; i < ml; i++) w[i >> 2] |= m[i] << (24 - (i & 3) * 8);
+    w[ml >> 2] |= 0x80 << (24 - (ml & 3) * 8);
+    w[nb * 16 - 1] = (ml * 8) >>> 0; w[nb * 16 - 2] = Math.floor(ml / 0x20000000);
+    let h0=0x67452301,h1=0xefcdab89,h2=0x98badcfe,h3=0x10325476,h4=0xc3d2e1f0;
+    const x = new Uint32Array(80);
+    for (let b = 0; b < nb; b++) {
+      for (let t = 0; t < 16; t++) x[t] = w[b * 16 + t];
+      for (let t = 16; t < 80; t++) { const v = x[t-3]^x[t-8]^x[t-14]^x[t-16]; x[t] = (v << 1) | (v >>> 31); }
+      let a=h0,bb=h1,c=h2,d=h3,e=h4;
+      for (let t = 0; t < 80; t++) {
+        const f = t<20 ? (bb&c)|(~bb&d) : t<40 ? bb^c^d : t<60 ? (bb&c)|(bb&d)|(c&d) : bb^c^d;
+        const k = t<20 ? 0x5a827999 : t<40 ? 0x6ed9eba1 : t<60 ? 0x8f1bbcdc : 0xca62c1d6;
+        const tmp = (((a << 5) | (a >>> 27)) + f + e + k + x[t]) >>> 0;
+        e=d; d=c; c=(bb<<30)|(bb>>>2); bb=a; a=tmp;
+      }
+      h0=(h0+a)>>>0; h1=(h1+bb)>>>0; h2=(h2+c)>>>0; h3=(h3+d)>>>0; h4=(h4+e)>>>0;
+    }
+    const o = new Uint8Array(20);
+    [h0,h1,h2,h3,h4].forEach((h,i)=>{ o[i*4]=h>>>24; o[i*4+1]=(h>>>16)&255; o[i*4+2]=(h>>>8)&255; o[i*4+3]=h&255; });
+    return o;
+  }
+  const IPAD = new Uint8Array(64), OPAD = new Uint8Array(64);
+  for (let i = 0; i < 64; i++) { const k = i < KEY.length ? KEY[i] : 0; IPAD[i] = 0x36 ^ k; OPAD[i] = 0x5c ^ k; }
+  const hmac = m => sha1(cat(OPAD, sha1(cat(IPAD, m))));
+  function u64(n){ const b = new Uint8Array(8); for (let i=0;i<8;i++){ b[i]=n%256; n=Math.floor(n/256);} return b; }
+  function stream(iv, data){
+    const o = new Uint8Array(data.length), ks = enc("ks");
+    for (let i = 0; i < data.length; i += 20) {
+      const k = hmac(cat(ks, iv, u64(i / 20)));
+      for (let j = 0; j < 20 && i + j < data.length; j++) o[i + j] = data[i + j] ^ k[j];
+    }
+    return o;
+  }
+  const b2s = b => { let s=""; for (let i=0;i<b.length;i+=8192) s+=String.fromCharCode.apply(null,b.subarray(i,i+8192)); return s; };
+  function eq(a,b){ if(a.length!==b.length) return false; let d=0; for(let i=0;i<a.length;i++) d|=a[i]^b[i]; return d===0; }
+  function randomIV(){
+    const iv = new Uint8Array(16);
+    if (globalThis.crypto && crypto.getRandomValues) crypto.getRandomValues(iv);
+    else for (let i=0;i<16;i++) iv[i]=Math.floor(Math.random()*256);
+    return iv;
+  }
+  function decode(str){
+    str = String(str||"").trim();
+    if (!str.startsWith(PREFIX)) throw new Error("La stringa non inizia con “RSE1:”.");
+    let raw;
+    try { raw = enc(atob(str.slice(PREFIX.length).replace(/\s+/g,""))); }
+    catch { throw new Error("Il blocco dopo “RSE1:” non è Base64 valido (stringa incompleta o alterata?)."); }
+    if (raw.length < 36) throw new Error("Stringa troppo corta per essere un salvataggio.");
+    const iv = raw.subarray(0,16), ct = raw.subarray(16, raw.length-20), tag = raw.subarray(raw.length-20);
+    const tagOk = eq(hmac(cat(enc("tag"), iv, ct)), tag);
+    const text = b2s(stream(iv, ct));
+    return { text, tagOk, bytes: raw.length };
+  }
+  function encode(text){
+    for (let i=0;i<text.length;i++) if (text.charCodeAt(i) > 255)
+      throw new Error("Il testo contiene il carattere “"+text[i]+"” che il formato non supporta (solo Latin-1).");
+    const iv = randomIV(), ct = stream(iv, enc(text));
+    return PREFIX + btoa(b2s(cat(iv, ct, hmac(cat(enc("tag"), iv, ct)))));
+  }
+  return { decode, encode, sha1, hmac };
+})();
+window.RSE = RSE;
+
+/* ================== Utilità UI ================== */
+const $ = id => document.getElementById(id);
+function el(tag, attrs, ...kids){
+  const e = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs||{})) {
+    if (v==null || v===false) continue;
+    if (k==="class") e.className=v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (k==="value") e.value=v;
+    else e.setAttribute(k, v===true ? "" : v);
+  }
+  for (const c of kids.flat()) if (c!=null && c!==false) e.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  return e;
+}
+let toastT;
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("on"),1800); }
+function status(id, kind, msg){ const s=$(id); s.className="status "+kind; s.textContent=msg; }
+const store = {
+  get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v);}catch{return d;} },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true;}catch{return false;} }
+};
+const clean = (v, extra="") => String(v).replace(new RegExp("[|\\r\\n"+extra+"]","g"), "");
+
+const CLASSES = {1:"Guerriero",2:"Paladino",3:"Cacciatore",4:"Ladro",5:"Sacerdote",6:"Cavaliere della Morte",7:"Sciamano",8:"Mago",9:"Stregone",10:"Monaco",11:"Druido",12:"Cacciatore di Demoni",13:"Evocatore"};
+const className = id => CLASSES[id] ? CLASSES[id] : "Classe "+id;
+
+/* ================== Stato ================== */
+const S = { original:"", lines:[], tab:"overview", lastOut:"" };
+const text = () => S.lines.join("\n");
+const F = i => S.lines[i].split("|");
+const idxOf = type => S.lines.map((l,i)=>[l.split("|")[0],i]).filter(x=>x[0]===type).map(x=>x[1]);
+function setField(i, fi, val){ const f=F(i); while(f.length<=fi) f.push(""); f[fi]=val; S.lines[i]=f.join("|"); changed(); }
+function parsePairs(s, sep){ return (s||"").split(",").filter(Boolean).map(p=>{ const k=p.indexOf(sep); return k<0?[p,""]:[p.slice(0,k),p.slice(k+1)]; }); }
+const joinPairs = (arr, sep) => arr.filter(p=>p[0]!=="").map(p=>p[0]+sep+p[1]).join(",");
+
+function load(t, note){
+  S.original = t; S.lines = t.split("\n"); S.lastOut = "";
+  $("editor").classList.remove("hidden");
+  $("outStr").value=""; $("copyBtn").disabled=$("dlBtn").disabled=true; $("outStatus").className="status";
+  renderTabs(); changed(true);
+  if (note) status("inStatus", note[0], note[1]);
+}
+function changed(silent){
+  if (S.tab==="raw" && document.activeElement!==$("rawTA") && $("rawTA")) $("rawTA").value=text();
+  const o=S.original.split("\n"), n=S.lines;
+  const d = diffLines(o,n).filter(x=>x[0]!=="s").length;
+  $("chg").innerHTML = "";
+  $("chg").append(d ? el("span",null,"Righe modificate: ",el("b",null,String(d))) : "Nessuna modifica rispetto all'originale.");
+  if (!silent && S.lastOut) { status("outStatus","info","Il testo è cambiato: rigenera la stringa prima di copiarla."); }
+  const dc=$("tab-diff-n"); if (dc) dc.textContent = d ? String(d) : "";
+  if (S.tab==="diff") renderTab();
+}
+
+/* ================== Diff ================== */
+function diffLines(a,b){
+  const n=a.length,m=b.length,L=Array.from({length:n+1},()=>new Uint16Array(m+1));
+  for(let i=n-1;i>=0;i--) for(let j=m-1;j>=0;j--) L[i][j]= a[i]===b[j] ? L[i+1][j+1]+1 : Math.max(L[i+1][j],L[i][j+1]);
+  const out=[]; let i=0,j=0;
+  while(i<n&&j<m){ if(a[i]===b[j]){out.push(["s",a[i]]);i++;j++;} else if(L[i+1][j]>=L[i][j+1]) out.push(["d",a[i++]]); else out.push(["a",b[j++]]); }
+  while(i<n) out.push(["d",a[i++]]); while(j<m) out.push(["a",b[j++]]);
+  return out;
+}
+
+/* ================== Tab ================== */
+const TABS = [
+  ["overview","Panoramica"],["talents","Talenti"],["armory","Armeria"],["zones","Zone"],["seen","Collezione"],["heroes","Eroi"],
+  ["lines","Tutte le righe"],["raw","Testo"],["diff","Differenze"]
+];
+function renderTabs(){
+  const t=$("tabs"); t.innerHTML="";
+  for (const [id,label] of TABS) t.append(el("button",{class:"tab",role:"tab",type:"button","aria-selected":String(S.tab===id),onclick:()=>{S.tab=id;renderTabs();}},
+    label, id==="diff"?el("span",{class:"n",id:"tab-diff-n"}):null));
+  renderTab();
+}
+function renderTab(){
+  const b=$("tabBody"); b.innerHTML="";
+  ({overview,talents,armory,zones,seen,heroes,lines:allLines,raw,diff})[S.tab](b);
+  if (S.tab!=="diff") changed(true);
+}
+
+function numInput(val, onset, attrs){
+  return el("input",Object.assign({type:"number",value:val,inputmode:"numeric",onchange:e=>onset(e.target.value===""?"0":String(Math.trunc(Number(e.target.value))))},attrs||{}));
+}
+function txtInput(val, onset, extra, attrs){
+  return el("input",Object.assign({type:"text",value:val,spellcheck:"false",onchange:e=>{ const v=clean(e.target.value,extra); e.target.value=v; onset(v);} },attrs||{}));
+}
+
+/* --- Coppie chiave/valore (stat, seen, ranghi talento) --- */
+function pairEditor(i, fi, sep, opt){
+  const items = parsePairs(F(i)[fi], sep);
+  const write = () => setField(i, fi, joinPairs(items, sep));
+  const box = el("div",{class:"pairs"}, el("div",{class:"h"},opt.keyLabel), el("div",{class:"h"},opt.valLabel), el("div"));
+  items.forEach((p,j)=>{
+    box.append(
+      txtInput(p[0], v=>{items[j][0]=v; write();}, ","+sep, {"aria-label":opt.keyLabel}),
+      numInput(p[1], v=>{items[j][1]=v; write();}, {"aria-label":opt.valLabel+" "+p[0]}),
+      el("button",{class:"btn x",type:"button",title:"Rimuovi",onclick:()=>{items.splice(j,1); write(); renderTab();}},"✕")
+    );
+  });
+  if (!items.length) box.append(el("div",{class:"empty",style:"grid-column:1/-1"},"Nessuna voce."));
+  const k = el("input",{type:"text",placeholder:"nuovo id",spellcheck:"false"});
+  const v = el("input",{type:"number",value:opt.defVal??"1"});
+  const add = el("div",{class:"row",style:"margin-top:8px"}, k, v, el("button",{class:"btn small",type:"button",onclick:()=>{
+    const key=clean(k.value.trim(),","+sep); if(!key) return toast("Scrivi un id");
+    const ex=items.find(p=>p[0]===key); if(ex) ex[1]=String(Math.trunc(Number(v.value)||0)); else items.push([key,String(Math.trunc(Number(v.value)||0))]);
+    write(); renderTab();
+  }},"Aggiungi"));
+  return el("div",null,box,add);
+}
+
+/* --- Panoramica --- */
+function overview(b){
+  const pick=idxOf("pick")[0], stat=idxOf("stat")[0], items=idxOf("items")[0];
+  if (pick!=null){
+    const f=F(pick), labels=["Classe (ID)","Campo 2","Campo 3","Zona","Nome","Valori A (csv)","Valori B (csv)"];
+    const grid=el("div",{class:"fields"});
+    for(let k=1;k<f.length;k++){
+      const lab=labels[k-1]||("Campo "+(k+1));
+      const inp = (k===1||k===2||k===3) ? numInput(f[k], v=>{setField(pick,k,v); if(k===1) renderTab();}) : txtInput(f[k], v=>setField(pick,k,v), k>=6?"":",");
+      grid.append(el("div",{class:"field"}, el("label",null,lab), inp, k===1?el("div",{class:"hint"},className(f[1])):null));
+    }
+    b.append(el("div",{class:"card"}, el("div",{class:"head"},el("span",{class:"title"},"Personaggio selezionato"),el("span",{class:"badge"},"pick")), grid,
+      el("p",{class:"hint",style:"margin:10px 0 0"},"I campi 2 e 3 coincidono con la riga hero della stessa classe: se li cambi, allinea anche quella.")));
+  }
+  if (stat!=null) b.append(el("div",{class:"card"}, el("div",{class:"head"},el("span",{class:"title"},"Statistiche account"),el("span",{class:"badge"},"stat")),
+    pairEditor(stat,1,"=",{keyLabel:"Statistica",valLabel:"Valore",defVal:"0"})));
+  if (items!=null) b.append(el("div",{class:"card"}, el("div",{class:"head"},el("span",{class:"title"},"Oggetti (id)"),el("span",{class:"badge"},"items")),
+    el("div",{class:"field"}, el("label",null,"Elenco di id separati da virgola"), txtInput(F(items)[1]||"", v=>setField(items,1,v.replace(/\s+/g,""))))));
+  const rs=idxOf("resets")[0];
+  b.append(el("div",{class:"card"}, el("div",{class:"head"},el("span",{class:"title"},"Reset dei perk"),el("span",{class:"badge"},"resets")),
+    rs==null ? el("p",{class:"hint",style:"margin:0"},"Nessuna riga resets in questo salvataggio: compare dopo il primo reset dei perk fatto in gioco.")
+    : el("div",{class:"row"}, el("span",null,"Valore attuale: ",el("b",{class:"mono"},S.lines[rs])),
+        /^resets\|\d+$/.test(S.lines[rs])
+          ? el("button",{class:"btn small",type:"button",title:"resets conta i reset usati: 0 = di nuovo 2 su 2 disponibili. Perk e tabard acquistati restano.",onclick:()=>{ S.lines[rs]="resets|0"; changed(); renderTab(); toast("Reset riportati a 2/2"); }},"Ripristina 2/2 reset")
+          : el("span",{class:"hint"},"formato non riconosciuto, non modificabile"))));
+  if (pick==null && stat==null && items==null) b.append(el("p",{class:"empty"},"Nessuna riga pick/stat/items: usa “Tutte le righe” o “Testo”."));
+}
+
+/* --- Talenti --- */
+/* Classi del gioco: quelle presenti nelle righe hero, altrimenti l'elenco base */
+function gameClasses(){
+  const h=[...new Set(idxOf("hero").map(i=>F(i)[1]).filter(x=>/^\d+$/.test(x)))];
+  return (h.length ? h : ["1","2","3","4","5","7","8","9","11"]).sort((a,b)=>a-b);
+}
+function talentInsertPos(){
+  const t=idxOf("talent"); if(t.length) return t[t.length-1]+1;
+  const s=idxOf("spec"); if(s.length) return s[0];
+  let n=S.lines.length; while(n>0 && S.lines[n-1]==="") n--; return n;
+}
+function talentTools(b){
+  const have=new Set(idxOf("talent").map(i=>F(i)[1]));
+  const missing=gameClasses().filter(c=>!have.has(c));
+  // Aggiungi classe
+  const sel=el("select",{"aria-label":"Classe da aggiungere"}, ...missing.map(c=>el("option",{value:c},className(c)+" ("+c+")")));
+  const pts1=el("input",{type:"number",value:"0","aria-label":"Punti iniziali"});
+  const addBox=el("div",{class:"field"}, el("label",null,"Aggiungi la riga talenti di una classe"),
+    missing.length
+      ? el("div",{class:"row"}, sel, pts1, el("button",{class:"btn small",type:"button",onclick:()=>{
+          const c=sel.value; if(!c) return;
+          S.lines.splice(talentInsertPos(),0,"talent|"+c+"|"+Math.trunc(Number(pts1.value)||0)+"|");
+          changed(); renderTab(); toast("Aggiunta "+className(c));
+        }},"Aggiungi"))
+      : el("div",{class:"hint"},"Tutte le classi del salvataggio hanno già la propria riga."));
+  // Imposta punti per tutte
+  const pts2=el("input",{type:"number",value:"1000000","aria-label":"Punti per tutte le classi"});
+  const chk=el("input",{type:"checkbox",id:"tAllCreate",checked:true});
+  const allBox=el("div",{class:"field"}, el("label",null,"Imposta i punti per tutte le classi"),
+    el("div",{class:"row"}, pts2, el("button",{class:"btn small",type:"button",onclick:()=>{
+      const v=String(Math.trunc(Number(pts2.value)||0));
+      for(const i of idxOf("talent")) setField(i,2,v);
+      let added=0;
+      if(chk.checked){
+        const now=new Set(idxOf("talent").map(i=>F(i)[1]));
+        for(const c of gameClasses()) if(!now.has(c)){ S.lines.splice(talentInsertPos(),0,"talent|"+c+"|"+v+"|"); added++; }
+      }
+      changed(); renderTab(); toast("Punti impostati"+(added?" · "+added+" classi aggiunte":""));
+    }},"Applica")),
+    el("label",{for:"tAllCreate",class:"hint",style:"display:flex;gap:6px;align-items:center;margin-top:6px"}, chk, "Crea anche le righe delle classi che non ce l'hanno (ranghi vuoti)"));
+  b.append(el("div",{class:"card"}, el("div",{class:"head"}, el("span",{class:"title"},"Strumenti"), el("span",{class:"badge"},"talent")),
+    el("div",{class:"fields",style:"grid-template-columns:repeat(auto-fill,minmax(260px,1fr))"}, addBox, allBox),
+    el("p",{class:"hint",style:"margin:10px 0 0"},"Una classe senza talenti spesi non ha la riga talent: viene creata con l'elenco dei ranghi vuoto. Le classi proposte sono quelle presenti nelle righe hero.")));
+}
+
+/* ================== Catalogo talenti e icone ================== */
+const CAT = (()=>{ try{ return JSON.parse(document.getElementById("catalog").textContent); }catch{ return []; } })();
+const CATCLS = {}; // id classe -> {name, trees:[{tree,icon,t:[{id,name,icon,desc,row,col,max,req}]}], byId}
+for (const c of CAT) {
+  const trees = c.trees.map(t=>({tree:t.tree, icon:t.icon, t:t.t.map(a=>({id:a[0],name:a[1],icon:a[2],desc:a[3],row:a[4],col:a[5],max:a[6],req:a[7]}))}));
+  const byId = {}; for (const t of trees) for (const a of t.t) byId[a.id] = Object.assign({tree:t.tree}, a);
+  CATCLS[String(c.id)] = {name:c.name, trees, byId};
+}
+const capVal = () => Math.max(1, Math.trunc(Number(store.get("ase.cap",51))) || 51);
+const ICON_URL = "https://wow.zamimg.com/images/wow/icons/medium/";
+const CLASS_ICON = {1:"classicon_warrior",2:"classicon_paladin",3:"classicon_hunter",4:"classicon_rogue",5:"classicon_priest",7:"classicon_shaman",8:"classicon_mage",9:"classicon_warlock",11:"classicon_druid"};
+const iconsOn = () => store.get("ase.icons", true);
+const initials = s => (String(s||"?").match(/[A-Za-zÀ-ÿ0-9]+/g)||["?"]).slice(0,2).map(w=>w[0].toUpperCase()).join("");
+function icon(name, label, cls){
+  const box = el("span",{class:cls||"ico","aria-hidden":"true"});
+  const fb = () => el("span",{class:"fb"}, initials(label));
+  if (iconsOn() && name) {
+    const im = el("img",{src:ICON_URL+String(name).toLowerCase()+".jpg",alt:"",loading:"lazy",referrerpolicy:"no-referrer",decoding:"async"});
+    im.addEventListener("error",()=>{ im.remove(); box.append(fb()); });
+    box.append(im);
+  } else box.append(fb());
+  return box;
+}
+const descText = d => String(d||"").replace(/\{v\}/g,"n");
+
+/* ---- lettura/scrittura ranghi ---- */
+const talentLine = cls => idxOf("talent").find(i=>F(i)[1]===String(cls));
+const ranksOf = cls => { const i=talentLine(cls); return i==null ? [] : parsePairs(F(i)[3]||"",":"); };
+function rankMap(cls){ const m={}; for(const [k,v] of ranksOf(cls)) m[k]=Number(v)||0; return m; }
+function writeRanks(cls, arr){
+  let i = talentLine(cls);
+  if (i==null) { if(!arr.length) return; i = talentInsertPos(); S.lines.splice(i,0,"talent|"+cls+"|0|"); }
+  setField(i, 3, joinPairs(arr, ":"));
+}
+function setRank(cls, id, r){
+  const arr = ranksOf(cls), p = arr.find(x=>x[0]===id);
+  if (r<=0) { if(p) arr.splice(arr.indexOf(p),1); }
+  else if (p) p[1]=String(r); else arr.push([id,String(r)]);
+  writeRanks(cls, arr);
+}
+const spentOf = cls => ranksOf(cls).reduce((s,p)=>s+(Number(p[1])||0),0);
+
+const sigRanks = r => String(r||"").split(",").filter(Boolean).sort().join(",");
+/* Il gioco salva la build attiva sia in talent| sia in spec|: se cambi solo talent| può ricaricare la vecchia. */
+function syncSpecs(){
+  const tmap = ls => { const m={}; for (const l of ls) { if(!l.startsWith("talent|")) continue; const p=l.split("|"); if(!(p[1] in m)) m[p[1]]=p.slice(3).join("|"); } return m; };
+  const before=tmap(S.original.split("\n")), now=tmap(S.lines), changedCls=[], skipped=[];
+  S.lines.forEach((l,i)=>{
+    if(!l.startsWith("spec|")) return;
+    const p=l.split("|"), c=p[1];
+    if(now[c]===undefined) return;
+    if(before[c]!==undefined && sigRanks(before[c])===sigRanks(now[c])) return; // talenti non modificati
+    if(!/^[012]$/.test(p[2]) || Number(p[2])+3>=p.length){ skipped.push(c); return; }
+    const k=Number(p[2])+3; if(sigRanks(p[k])===sigRanks(now[c])) return;
+    p[k]=now[c]; S.lines[i]=p.join("|"); changedCls.push(c);
+  });
+  return {changedCls, skipped};
+}
+/* Distribuisce punti fino a "target" rispettando prerequisiti e soglia di 5 punti per fila.
+   Tiene i ranghi già presenti; riempie prima l'albero con più punti, in ordine di fila. */
+function autoFill(c, target){
+  const cat=CATCLS[c]; if(!cat) return 0;
+  const arr=ranksOf(c), rk={}; for(const [k,v] of arr) rk[k]=Number(v)||0;
+  let spent=arr.reduce((s,p)=>s+(Number(p[1])||0),0), added=0;
+  const tp=t=>t.t.reduce((s,a)=>s+(rk[a.id]||0),0);
+  const trees=cat.trees.map((t,i)=>({t,i,p:tp(t)})).sort((x,y)=>y.p-x.p||x.i-y.i).map(x=>x.t);
+  for(const t of trees){
+    for(const a of [...t.t].sort((x,y)=>x.row-y.row||x.col-y.col)){
+      while(spent<target && (rk[a.id]||0)<a.max){
+        if(tp(t)<5*a.row) break;
+        if(a.req && (rk[a.req]||0)<(cat.byId[a.req]?cat.byId[a.req].max:1)) break;
+        rk[a.id]=(rk[a.id]||0)+1; spent++; added++;
+      }
+    }
+  }
+  if(added){
+    for(const p of arr) p[1]=String(rk[p[0]]);
+    for(const t of cat.trees) for(const a of t.t) if(rk[a.id] && !arr.some(p=>p[0]===a.id)) arr.push([a.id,String(rk[a.id])]);
+    writeRanks(c, arr);
+  }
+  return added;
+}
+function ensureTalentLine(c, xp){
+  let i=talentLine(c);
+  if(i==null){ S.lines.splice(talentInsertPos(),0,"talent|"+c+"|"+xp+"|"); changed(); return talentLine(c); }
+  return i;
+}
+function unlockAllClasses(){
+  const cls=gameClasses().filter(c=>CATCLS[c]);
+  if(!confirm("Per "+cls.length+" classi: Talent XP a 1.000.000 e talenti completati fino a 51 punti (i talenti già scelti restano). Continuare?")) return;
+  let n=0;
+  for(const c of cls){ const i=ensureTalentLine(c,"1000000"); setField(i,2,"1000000"); autoFill(c,51); n++; }
+  renderTab(); toast(n+" classi sbloccate a 51 punti");
+}
+/* ---- scheda Talenti ---- */
+function talents(b){
+  b.append(el("div",{class:"unlock"},
+    el("div",null, el("strong",null,"Sblocca tutte le classi a 51"), el("div",{class:"hint"},"Talent XP 1.000.000 per ogni classe e talenti distribuiti fino a 51 punti, rispettando prerequisiti e 5 punti per fila. Le build già scelte vengono completate, non sostituite.")),
+    el("button",{class:"btn primary",type:"button",onclick:unlockAllClasses},"Sblocca tutto a 51")));
+  const lineCls = idxOf("talent").map(i=>F(i)[1]);
+  const all = [...new Set(Object.keys(CATCLS).concat(lineCls))].sort((a,b)=>a-b);
+  if (!S.tcls || !all.includes(S.tcls)) {
+    const pick = idxOf("pick")[0];
+    S.tcls = lineCls.find(c=>spentOf(c)>0) || (pick!=null ? F(pick)[1] : all[0]);
+    if (!all.includes(S.tcls)) S.tcls = all[0];
+  }
+  const bar = el("div",{class:"classbar",role:"group","aria-label":"Classe"});
+  for (const c of all) {
+    const sp = spentOf(c), has = lineCls.includes(c);
+    bar.append(el("button",{class:"chip",type:"button","aria-pressed":String(S.tcls===c),onclick:()=>{S.tcls=c;renderTab();}},
+      icon(CLASS_ICON[c], className(c), "ico sm"), className(c),
+      el("span",{class:"cnt"}, has ? sp+"/"+capVal() : "—")));
+  }
+  b.append(bar);
+
+  const c = S.tcls, cat = CATCLS[c], li = talentLine(c), ranks = rankMap(c), spent = spentOf(c);
+  const head = el("div",{class:"head"},
+    el("span",{class:"row"}, icon(CLASS_ICON[c], className(c), "ico lg"),
+      el("span",null, el("div",{class:"title"}, className(c)),
+        el("div",{class:"hint"}, li==null ? "Nessuna riga talent: si crea al primo punto assegnato." : "Riga talent · classe "+c))),
+    el("span",{class:"row"},
+      el("span",{class:"spent"+(spent>capVal()?" over":"")}, spent+" / "+capVal()+" punti spesi"),
+      li!=null && cat ? el("button",{class:"btn small",type:"button",title:"Aggiunge punti fino a 51 rispettando prerequisiti e 5 punti per fila; i talenti già scelti restano",onclick:()=>{ const n=autoFill(c,51); renderTab(); toast(n?("+"+n+" punti"):"Già a 51 o nessun talento disponibile"); }},"Completa a 51") : null,
+      li!=null ? el("button",{class:"btn small",type:"button",onclick:()=>{ if(confirm("Azzerare tutti i talenti di "+className(c)+"?")){ writeRanks(c,[]); renderTab(); } }},"Svuota") : null,
+      li!=null ? el("button",{class:"btn x",type:"button",title:"Rimuovi la riga talenti di questa classe",onclick:()=>{ if(confirm("Rimuovere la riga talenti di "+className(c)+"?")){ S.lines.splice(li,1); changed(); renderTab(); } }},"✕") : null));
+  const card = el("div",{class:"card"}, head);
+  if (li==null) {
+    const xp=el("input",{type:"number",value:"1000000","aria-label":"Talent XP da assegnare"});
+    card.append(el("div",{class:"unlock"},
+      el("div",null, el("strong",null,"Classe senza punti talento"), el("div",{class:"hint"},"Inserisci la Talent XP da assegnare (1.000.000 = tutti i 51 punti) e sblocca la classe.")),
+      el("div",{class:"row"}, xp,
+        el("button",{class:"btn primary small",type:"button",onclick:()=>{ ensureTalentLine(c, String(Math.max(0,Math.trunc(Number(xp.value)||0)))); renderTab(); toast(className(c)+" sbloccata"); }},"Sblocca"),
+        el("button",{class:"btn small",type:"button",onclick:()=>{ ensureTalentLine(c, String(Math.max(0,Math.trunc(Number(xp.value)||0)))); autoFill(c,51); renderTab(); toast(className(c)+" sbloccata a 51 punti"); }},"Sblocca e completa a 51"))));
+  }
+  if (spent>capVal()) card.append(el("div",{class:"status bad",style:"display:block;margin:0 0 10px"},"Più di "+capVal()+" punti spesi: il gioco potrebbe rifiutare o riportare indietro questa build."));
+  if (spent>51 && spent<=capVal()) card.append(el("div",{class:"status info",style:"display:block;margin:0 0 10px"},"Oltre 51 punti: il gioco concede al massimo 51 punti (1.000.000 di Talent XP). Una build più grande potrebbe essere tagliata o annullata."));
+  card.append(el("div",{class:"fields",style:"margin-bottom:12px"},
+    li!=null ? el("div",{class:"field"}, el("label",null,"Talent XP (1.000.000 = tutti i 51 punti)"),
+      el("div",{class:"row"}, numInput(F(li)[2]||"0", v=>setField(li,2,v)), el("button",{class:"btn small",type:"button",onclick:()=>{ setField(li,2,"1000000"); renderTab(); }},"Max"))) : null,
+    el("div",{class:"field"}, el("label",null,"Limite punti dell'editor (non salvato nel file)"),
+      el("div",{class:"row"}, numInput(String(capVal()), v=>{ store.set("ase.cap", Math.max(1,Number(v)||51)); renderTab(); }),
+        el("button",{class:"btn small",type:"button",onclick:()=>{ store.set("ase.cap",51); renderTab(); }},"Torna a 51")))));
+
+  if (cat) {
+    const trees = el("div",{class:"trees"});
+    for (const t of cat.trees) {
+      const tSpent = t.t.reduce((s,a)=>s+(ranks[a.id]||0),0);
+      const grid = el("div",{class:"tgrid"});
+      const rows = Math.max(...t.t.map(a=>a.row))+1;
+      grid.style.gridTemplateRows = "repeat("+rows+",52px)";
+      for (const a of t.t) {
+        const r = ranks[a.id]||0, reqDef = a.req ? cat.byId[a.req] : null;
+        const reqBad = r>0 && reqDef && (ranks[a.req]||0) < reqDef.max;
+        const tip = a.name+"  ("+r+"/"+a.max+")\n"+descText(a.desc)+(reqDef?"\nRichiede: "+reqDef.name+" "+reqDef.max+"/"+reqDef.max:"")+"\n\nClic: +1 · Clic destro o Maiusc+clic: −1";
+        const node = el("button",{type:"button",class:"node"+(r===0?" off":r>=a.max?" max":" part")+(reqBad||r>a.max?" bad":""),
+          title:tip,"aria-label":a.name+", rango "+r+" su "+a.max,
+          style:"grid-row:"+(a.row+1)+";grid-column:"+(a.col+1),
+          onclick:e=>{ const d=e.shiftKey?-1:1; const nr=Math.min(a.max,Math.max(0,r+d)); if(nr!==r){ setRank(c,a.id,nr); renderTab(); } },
+          oncontextmenu:e=>{ e.preventDefault(); if(r>0){ setRank(c,a.id,r-1); renderTab(); } }},
+          icon(a.icon, a.name, "nimg"), el("span",{class:"rk"}, r+"/"+a.max));
+        grid.append(node);
+      }
+      trees.append(el("div",{class:"tree"},
+        el("div",{class:"th"}, icon(t.icon, t.tree, "ico"), el("strong",null,t.tree), el("span",{class:"cnt"}, String(tSpent))),
+        grid,
+        el("div",{class:"row",style:"justify-content:center;margin-top:10px"},
+          el("button",{class:"btn small",type:"button",title:"Porta ogni talento di questo albero al rango massimo",onclick:()=>{
+            const arr=ranksOf(c); for(const a of t.t){ const p=arr.find(x=>x[0]===a.id); if(p) p[1]=String(a.max); else arr.push([a.id,String(a.max)]); } writeRanks(c,arr); renderTab(); }},"Max albero"),
+          el("button",{class:"btn small",type:"button",onclick:()=>{ const ids=new Set(t.t.map(a=>a.id)); writeRanks(c, ranksOf(c).filter(p=>!ids.has(p[0]))); renderTab(); }},"Svuota albero"))));
+    }
+    card.append(trees, el("p",{class:"hint",style:"margin:10px 0 0"},"Clic su un talento: +1 · clic destro (o Maiusc+clic): −1. Bordo verde = parziale, oro = massimo, rosso = prerequisito mancante o oltre il massimo. I valori numerici delle descrizioni (n) non sono nel catalogo."));
+    const unknown = ranksOf(c).filter(p=>!cat.byId[p[0]]);
+    if (unknown.length) card.append(el("div",{class:"status bad",style:"display:block;margin-top:10px"},"Talenti non presenti nel catalogo: "+unknown.map(p=>p.join(":")).join(", ")));
+  } else card.append(el("p",{class:"empty"},"Classe non presente nel catalogo: usa l'elenco grezzo."));
+
+  if (li!=null) card.append(el("details",{class:"raw",style:"margin-top:12px"}, el("summary",null,"Elenco grezzo dei ranghi"), el("div",{style:"margin-top:8px"}, pairEditor(li,3,":",{keyLabel:"Talento",valLabel:"Rango",defVal:"1"}))));
+  b.append(card);
+
+  for (const i of idxOf("spec").filter(i=>F(i)[1]===c)) {
+    const f=F(i), act=Number(f[2]), nb=Math.max(1,f.length-3), cur=li!=null?(F(li)[3]||""):"";
+    const okLayout=/^[012]$/.test(f[2]) && act+3<f.length;
+    const match = okLayout && sigRanks(f[act+3])===sigRanks(cur);
+    const builds=el("div",{class:"builds"});
+    for (let k=0;k<nb;k++) {
+      const r=parsePairs(f[k+3]||"",":"), pts=r.reduce((s,p)=>s+(Number(p[1])||0),0);
+      builds.append(el("div",{class:"build"+(k===act?" on":"")},
+        el("div",{class:"row",style:"justify-content:space-between"}, el("strong",null,"Build "+(k+1)), k===act?el("span",{class:"badge"},"attiva"):null),
+        el("div",{class:"hint"}, r.length ? pts+" punti · "+r.map(p=>((cat&&cat.byId[p[0]])?cat.byId[p[0]].name:p[0])+" "+p[1]).join(", ") : "vuota")));
+    }
+    b.append(el("div",{class:"card"},
+      el("div",{class:"head"}, el("span",{class:"title"}, "Build salvate · "+className(f[1])), el("span",{class:"badge"},"spec")),
+      builds,
+      !okLayout ? el("div",{class:"status bad",style:"display:block;margin-top:10px"},"Struttura spec non riconosciuta (indice "+f[2]+"): l'app non la modifica.")
+        : match ? el("div",{class:"status ok",style:"display:block;margin-top:10px"},"La build attiva coincide con i talenti: il gioco caricherà questi.")
+        : el("div",{class:"status bad",style:"display:block;margin-top:10px"},
+            "La build attiva è diversa dai talenti. Il gioco carica la build attiva, quindi senza allinearla le modifiche ai talenti possono tornare indietro. ",
+            el("button",{class:"btn small",type:"button",style:"margin-left:6px",onclick:()=>{ setField(i,act+3,cur); renderTab(); toast("Build attiva allineata"); }},"Allinea ora")),
+      el("p",{class:"hint",style:"margin:8px 0 0"},"Formato: spec|classe|indice build attiva|build 1|build 2|build 3. All'export l'app aggiorna da sola la build attiva quando cambi i talenti (opzione nel pannello Esporta); le build inattive non vengono mai toccate.")));
+  }
+  talentTools(b);
+}
+
+/* ---- scheda Armeria ---- */
+const SLOTS = ["Testa","Spalle","Torso","Vita","Gambe","Piedi","Polsi","Mani","Arma principale","Mano secondaria"];
+const slotCount = c => (String(c)==="4"||String(c)==="7") ? 10 : 9; // Ladro e Sciamano hanno la mano secondaria
+const DROP = ["Elwynn Forest / Duskwood","Warsong Gulch / Un’Goro","Arathi Basin / Feralas","Gurubashi Arena / Scarlet Monastery","Alterac Valley / Blackrock Mountain","Gates of Ahn’Qiraj / Naxxramas"];
+const SHAMAN_RARE = ["Earthfury Helm","Earthfury Spaulders","Earthfury Breastplate","Earthfury Belt","Earthfury Legguards","Earthfury Greaves","Earthfury Bracers","Earthfury Gauntlets","Earthfury Hammer","Totem Shield"];
+const SHAMAN_COMMON = {6:"Primal Bracers",7:"Primal Gauntlets",9:"Round Buckler"};
+const itemName = (c,s,q) => String(c)==="7"&&q===2 ? SHAMAN_RARE[s] : (String(c)==="7"&&q===0&&SHAMAN_COMMON[s]) ? SHAMAN_COMMON[s] : null;
+const QUALS = [["Comune","q0"],["Non comune","q1"],["Raro","q2"],["Epico","q3"],["PvP","q4"],["Leggendario","q5"]];
+const itemId = (c,s,q) => String(100000 + Number(c)*1000 + s*100 + q*10);
+function itemsLine(create){
+  let i = idxOf("items")[0];
+  if (i==null && create) { const p=idxOf("pick")[0]; i = p!=null ? p+1 : 0; S.lines.splice(i,0,"items|"); }
+  return i;
+}
+const itemSet = () => { const i=itemsLine(false); return new Set(i==null ? [] : (F(i)[1]||"").split(",").filter(Boolean)); };
+function writeItems(fn){
+  const i=itemsLine(true), list=(F(i)[1]||"").split(",").filter(Boolean);
+  setField(i, 1, fn(list).join(","));
+}
+const ARMORY_CLASSES = ["1","2","3","4","5","7","8","9","11"];
+const allItemIds = () => ARMORY_CLASSES.flatMap(c=>{ const o=[]; for(let q=0;q<6;q++) for(let s=0;s<slotCount(c);s++) o.push(itemId(c,s,q)); return o; });
+function armory(b){
+  const classes = ARMORY_CLASSES;
+  { const owned=itemSet(), all=allItemIds(), tot=all.filter(x=>owned.has(x)).length;
+    const restore=()=>{ const o=S.original.split("\n").find(l=>l.startsWith("items|")), i=idxOf("items")[0];
+      if(o!=null){ if(i!=null) S.lines[i]=o; else { const p=idxOf("pick")[0]; S.lines.splice(p!=null?p+1:0,0,o); } } else if(i!=null) S.lines.splice(i,1);
+      changed(); renderTab(); toast("Equipaggiamento ripristinato"); };
+    b.append(el("div",{class:"card"},
+      el("div",{class:"head"}, el("span",{class:"title"},"Collezione equipaggiamento"), el("span",{class:"spent"}, tot+" / "+all.length+" totali")),
+      el("div",{class:"zbar"}, el("span",{style:"width:"+(tot/all.length*100)+"%"})),
+      el("div",{class:"row"},
+        el("button",{class:"btn primary small",type:"button",onclick:()=>{ writeItems(l=>l.concat(all.filter(x=>!l.includes(x)))); renderTab(); toast("Sbloccati tutti i "+all.length+" pezzi"); }},"Sblocca tutti i "+all.length+" pezzi"),
+        el("button",{class:"btn small",type:"button",title:"Rimette la riga items com'era nel salvataggio importato",onclick:restore},"Ripristina equipaggiamento importato"))));
+  }
+  if (!S.acls || !classes.includes(S.acls)) S.acls = classes[0];
+  const owned = itemSet();
+  const bar = el("div",{class:"classbar",role:"group","aria-label":"Classe"});
+  for (const c of classes) {
+    let n=0; for(let s=0;s<slotCount(c);s++) for(let q=0;q<6;q++) if(owned.has(itemId(c,s,q))) n++;
+    bar.append(el("button",{class:"chip",type:"button","aria-pressed":String(S.acls===c),onclick:()=>{S.acls=c;renderTab();}},
+      icon(CLASS_ICON[c], className(c), "ico sm"), className(c), el("span",{class:"cnt"}, n+"/"+(slotCount(c)*6))));
+  }
+  b.append(bar);
+  const c = S.acls;
+  const tb = el("tbody");
+  for (let s=0;s<slotCount(c);s++) {
+    tb.append(el("tr",null, el("th",{scope:"row"},SLOTS[s]),
+      ...QUALS.map(([qn,qc],q)=>{ const id=itemId(c,s,q);
+        return el("td",{class:"cc"}, el("label",{class:"chk "+qc,title:(itemName(c,s,q)||qn+" · "+SLOTS[s])+" · "+id+"\nDrop: "+DROP[q]},
+          el("input",{type:"checkbox",checked:owned.has(id),"aria-label":qn+" "+SLOTS[s],onchange:e=>{
+            const on=e.target.checked; writeItems(l=>on ? (l.includes(id)?l:l.concat(id)) : l.filter(x=>x!==id)); renderTabKeepScroll(); }}),
+          el("span",{class:"mono"},id.slice(-3)))); })));
+  }
+  const all = (on, filter) => { const ids=[]; for(let s=0;s<slotCount(c);s++) for(let q=0;q<6;q++) if(!filter||filter(q)) ids.push(itemId(c,s,q));
+    writeItems(l=> on ? l.concat(ids.filter(x=>!l.includes(x))) : l.filter(x=>!ids.includes(x))); renderTab(); };
+  let have=0; for(let s=0;s<slotCount(c);s++) for(let q=0;q<6;q++) if(owned.has(itemId(c,s,q))) have++;
+  b.append(el("div",{class:"card"},
+    el("div",{class:"head"}, el("span",{class:"row"}, icon(CLASS_ICON[c], className(c), "ico lg"), el("span",null, el("div",{class:"title"},"Armeria · "+className(c)), el("div",{class:"hint"}, have+" / "+(slotCount(c)*6)+" raccolti"))),
+      el("span",{class:"row"},
+        el("button",{class:"btn small",type:"button",onclick:()=>all(true)},"Sblocca tutti per "+className(c)),
+        el("button",{class:"btn small",type:"button",onclick:()=>all(true,q=>q!==4)},"Tutto tranne PvP"),
+        el("button",{class:"btn small",type:"button",onclick:()=>all(false)},"Nessuno"))),
+    el("div",{class:"scroll"}, el("table",{class:"armory"},
+      el("thead",null, el("tr",null, el("th",null,"Slot"), ...QUALS.map(([qn,qc],q)=>el("th",{class:"cc "+qc,title:"Drop: "+DROP[q]},qn)))), tb)),
+    el("p",{class:"hint",style:"margin:10px 0 0"},"Ogni casella aggiunge o toglie l'id dalla riga items (id = 100000 + classe×1000 + slot×100 + rarità×10). Ladro e Sciamano hanno anche la mano secondaria (10 slot, 60 pezzi; 498 in tutto). Passa sopra una casella per nome e zona di drop: i nomi reali sono verificati solo per lo Sciamano. Gli id fuori da questo schema restano invariati.")));
+}
+/* ---- scheda Zone ---- */
+const ZONES = [["Elwynn Forest","elwynn"],["Duskwood","duskwood"],["Warsong Gulch","wsg"],["Un’Goro Crater","ungoro"],["Arathi Basin","ab"],["Feralas","feralas"],["Gurubashi Arena","arena"],["Scarlet Monastery","sm"],["Alterac Valley","av"],["Blackrock Mountain","brm"],["Gates of Ahn’Qiraj","aq"],["Naxxramas","naxx"]];
+const zoneIdx = k => { const i=ZONES.findIndex(z=>z[1]===k); return i<0?999:i; };
+const zoneName = k => (ZONES.find(z=>z[1]===k)||[k])[0];
+const zLine = (kind,c,lines) => (lines||S.lines).findIndex(l=>l.startsWith(kind+"|"+c+"|"));
+const zoneInit = c => ["open","beat","unlock"].some(k=>zLine(k,c)>=0);
+function beatSet(c){ const i=zLine("beat",c); return new Set(i<0?[]:S.lines[i].split("|").slice(2).join("|").split(",").filter(Boolean)); }
+function writeBeat(c,set){
+  const vals=[...set].sort((a,b)=>zoneIdx(a)-zoneIdx(b)||a.localeCompare(b));
+  const i=zLine("beat",c);
+  if(i>=0) S.lines[i]="beat|"+c+"|"+vals.join(",");
+  else if(vals.length){ let at=S.lines.length; if(at&&S.lines[at-1]==="") at--; S.lines.splice(at,0,"beat|"+c+"|"+vals.join(",")); }
+  // salvataggi vecchi: unlock|classe|N = zona più lontana sbloccata (1-based)
+  const u=zLine("unlock",c);
+  if(u>=0 && /^unlock\|\d+\|\d+$/.test(S.lines[u])){
+    const o=S.original.split("\n").find(l=>l.startsWith("unlock|"+c+"|")), base=Number((o||S.lines[u]).split("|")[2])||1;
+    const far=ZONES.reduce((n,[,k],ix)=>set.has(k)?ix:n,-1);
+    S.lines[u]="unlock|"+c+"|"+Math.max(base,Math.min(ZONES.length,far+2));
+  }
+  changed();
+}
+function zones(b){
+  const classes=[...new Set(gameClasses().concat(Object.keys(CATCLS)))].sort((a,b)=>a-b);
+  if(!S.zcls||!classes.includes(S.zcls)){ const p=idxOf("pick")[0]; S.zcls=(p!=null&&classes.includes(F(p)[1]))?F(p)[1]:classes[0]; }
+  const bar=el("div",{class:"classbar",role:"group","aria-label":"Classe"});
+  for(const c of classes) bar.append(el("button",{class:"chip",type:"button","aria-pressed":String(S.zcls===c),onclick:()=>{S.zcls=c;renderTab();}},
+    icon(CLASS_ICON[c],className(c),"ico sm"), className(c), el("span",{class:"cnt"}, zoneInit(c)? beatSet(c).size+"/12" : "—")));
+  b.append(bar);
+  const c=S.zcls, init=zoneInit(c), beat=beatSet(c), oi=zLine("open",c), ui=zLine("unlock",c);
+  const card=el("div",{class:"card"},
+    el("div",{class:"head"}, el("span",{class:"row"}, icon(CLASS_ICON[c],className(c),"ico lg"), el("span",{class:"title"},"Zone · "+className(c))),
+      el("span",{class:"spent"}, init ? beat.size+" / 12 completate" : "non inizializzate")));
+  if(!init){
+    card.append(el("div",{class:"status info",style:"display:block"},"Questo salvataggio non ha progressi zone per "+className(c)+" (nessuna riga open, beat o unlock). Gioca una partita con questa classe, esporta un salvataggio nuovo e riprova: creare i progressi da zero può corrompere l'account."));
+  } else {
+    card.append(el("div",{class:"zbar"}, el("span",{style:"width:"+(beat.size/12*100)+"%"})));
+    const info=[];
+    if(oi>=0) info.push("Zona selezionata nel gioco: "+zoneName(F(oi).slice(2).join("|"))+" (non modificata).");
+    if(ui>=0) info.push("Salvataggio di formato vecchio: la riga unlock ("+F(ui)[2]+") viene aggiornata insieme alle zone.");
+    if(info.length) card.append(el("p",{class:"hint"},info.join(" ")));
+    const grid=el("div",{class:"zgrid"});
+    ZONES.forEach(([n,k],ix)=>grid.append(el("label",{class:"zcard"+(beat.has(k)?" on":"")},
+      el("input",{type:"checkbox",checked:beat.has(k),onchange:e=>{ const st=beatSet(c); e.target.checked?st.add(k):st.delete(k); writeBeat(c,st); renderTabKeepScroll(); }}),
+      el("span",null, el("span",{class:"zn"}, String(ix+1).padStart(2,"0")+" · "+n), el("span",{class:"hint mono"}, k)))));
+    card.append(grid);
+    const sel=el("select",{"aria-label":"Zona di destinazione"}, ...ZONES.map(([n,k])=>el("option",{value:k},n)));
+    sel.value="naxx";
+    card.append(el("div",{class:"row",style:"margin-top:12px"},
+      el("span",{class:"hint"},"Sblocca fino a"), sel,
+      el("button",{class:"btn small",type:"button",title:"Segna come completate tutte le zone prima di quella scelta (la destinazione resta da fare)",onclick:()=>{ const st=beatSet(c); for(let i=0;i<zoneIdx(sel.value);i++) st.add(ZONES[i][1]); writeBeat(c,st); renderTab(); toast("Prerequisiti completati"); }},"Completa i prerequisiti"),
+      el("button",{class:"btn small",type:"button",onclick:()=>{ writeBeat(c,new Set(ZONES.map(z=>z[1]))); renderTab(); }},"Tutte e 12"),
+      el("button",{class:"btn small ghost",type:"button",title:"Rimetti le righe beat e unlock di questa classe come nel salvataggio importato",onclick:()=>{
+        const orig=S.original.split("\n");
+        for(const kind of ["beat","unlock"]){ const o=orig.find(l=>l.startsWith(kind+"|"+c+"|")), i=zLine(kind,c);
+          if(o!=null && i>=0) S.lines[i]=o; else if(o!=null){ let at=S.lines.length; if(at&&S.lines[at-1]==="") at--; S.lines.splice(at,0,o); } else if(i>=0) S.lines.splice(i,1); }
+        changed(); renderTab(); toast("Zone ripristinate"); }},"Ripristina importate")));
+    card.append(el("p",{class:"hint",style:"margin:10px 0 0"},"Completare le zone precedenti è il modo verificato in gioco per avanzare. Le zone completate vanno nella riga beat|classe|…; la zona selezionata (open) non viene toccata."));
+  }
+  b.append(card);
+}
+function renderTabKeepScroll(){ const y=window.scrollY; renderTab(); window.scrollTo(0,y); }
+
+/* --- Collezione --- */
+function seen(b){
+  const s=idxOf("seen");
+  if(!s.length){ b.append(el("p",{class:"empty"},"Nessuna riga seen."), el("button",{class:"btn small",type:"button",onclick:()=>{S.lines.push("seen|");changed();renderTab();}},"Crea riga seen")); return; }
+  for(const i of s) b.append(el("div",{class:"card"},
+    el("div",{class:"head"}, el("span",{class:"title"},"Oggetti visti"), el("span",{class:"badge"},"seen · "+parsePairs(F(i)[1],"=").length)),
+    pairEditor(i,1,"=",{keyLabel:"Oggetto",valLabel:"Valore",defVal:"1"})));
+}
+
+/* --- Eroi --- */
+function heroes(b){
+  const h=idxOf("hero");
+  const tb=el("tbody");
+  for(const i of h){
+    const f=F(i);
+    tb.append(el("tr",null,
+      el("td",null, numInput(f[1]||"0", v=>{setField(i,1,v);}, {"aria-label":"Classe"}), el("div",{class:"hint"},className(f[1]))),
+      el("td",null, numInput(f[2]||"0", v=>setField(i,2,v), {"aria-label":"Valore A"})),
+      el("td",null, numInput(f[3]||"0", v=>setField(i,3,v), {"aria-label":"Valore B"})),
+      el("td",null, txtInput(f.slice(4).join("|"), v=>{ const g=F(i).slice(0,4); while(g.length<4) g.push("0"); S.lines[i]=g.concat(v===""?[]:[v]).join("|"); changed(); }, "", {"aria-label":"Valori","class":"mono"})),
+      el("td",{class:"act"}, el("button",{class:"btn x",type:"button",title:"Rimuovi",onclick:()=>{S.lines.splice(i,1);changed();renderTab();}},"✕"))
+    ));
+  }
+  b.append(el("div",{class:"scroll"}, el("table",null, el("thead",null, el("tr",null, el("th",null,"Classe"),el("th",null,"Valore A"),el("th",null,"Valore B"),el("th",null,"Valori (csv)"),el("th"))), tb)));
+  if(!h.length) b.append(el("p",{class:"empty"},"Nessuna riga hero."));
+  b.append(el("div",{class:"row",style:"margin-top:10px"}, el("button",{class:"btn small",type:"button",onclick:()=>{
+    const last=h.length?h[h.length-1]+1:S.lines.length; S.lines.splice(last,0,"hero|1|1|0|0,0,0,0,0"); changed(); renderTab();
+  }},"Aggiungi eroe")),
+  el("p",{class:"hint"},"Valore A e B non sono documentati: nel personaggio selezionato coincidono con i campi 2 e 3 della riga pick. ID classe come in WoW."));
+}
+
+/* --- Tutte le righe --- */
+function allLines(b){
+  b.append(el("p",{class:"hint",style:"margin-top:0"},"Editor generico: ogni riga è un tipo seguito da campi separati da “|”. Utile per righe non gestite dalle altre schede (equip, look, resets…)."));
+  S.lines.forEach((line,i)=>{
+    if(line==="" && i===S.lines.length-1) return; // a-capo finale del salvataggio
+    const f=line.split("|");
+    b.append(el("div",{class:"lineedit"},
+      el("span",{class:"t"}, f[0]||"(vuota)"),
+      ...f.slice(1).map((x,k)=>txtInput(x, v=>setField(i,k+1,v), "", {"aria-label":f[0]+" campo "+(k+2)})),
+      el("button",{class:"btn small ghost",type:"button",title:"Aggiungi campo",onclick:()=>{S.lines[i]+="|";changed();renderTab();}},"+ campo"),
+      el("button",{class:"btn x",type:"button",title:"Elimina riga",onclick:()=>{S.lines.splice(i,1);changed();renderTab();}},"✕")
+    ));
+  });
+  const t=el("input",{type:"text",placeholder:"tipo (es. resets)",spellcheck:"false"});
+  b.append(el("div",{class:"row",style:"margin-top:10px"}, t, el("button",{class:"btn small",type:"button",onclick:()=>{
+    const v=clean(t.value.trim()); if(!v) return toast("Scrivi il tipo della riga"); S.lines.push(v+"|"); changed(); renderTab();
+  }},"Aggiungi riga")));
+}
+
+/* --- Testo grezzo --- */
+function raw(b){
+  const ta=el("textarea",{id:"rawTA",rows:"22",spellcheck:"false",value:text(),oninput:e=>{ S.lines=e.target.value.replace(/\r/g,"").split("\n"); changed(); }});
+  ta.value=text();
+  b.append(el("p",{class:"hint",style:"margin-top:0"},"Questo è il salvataggio esatto che verrà cifrato. Le modifiche qui si riflettono in tutte le altre schede."), ta);
+}
+
+/* --- Differenze --- */
+function diff(b){
+  const d=diffLines(S.original.split("\n"), S.lines);
+  if(!d.some(x=>x[0]!=="s")){ b.append(el("p",{class:"empty"},"Nessuna differenza rispetto all'originale importato.")); return; }
+  const box=el("div",{class:"diff"});
+  for(const [k,l] of d) box.append(el("div",{class:k},l||" "));
+  b.append(box);
+}
+
+/* ================== Backup ================== */
+const BK="ase.backups.v1";
+function addBackup(kind, str){
+  const list=store.get(BK,[]);
+  if(list.some(x=>x.str===str)) return;
+  let who=""; try{ const t=RSE.decode(str).text.split("\n").find(l=>l.startsWith("pick|")); if(t) who=t.split("|")[5]||""; }catch{}
+  list.unshift({ts:Date.now(),kind,str,who}); store.set(BK,list.slice(0,40)); renderBackups();
+}
+function renderBackups(){
+  const list=store.get(BK,[]), box=$("bkList"); box.innerHTML="";
+  $("bkCount").textContent = list.length ? "("+list.length+")" : "";
+  if(!list.length){ box.append(el("p",{class:"empty"},"Ancora nessun backup.")); return; }
+  list.forEach((x,i)=>box.append(el("div",{class:"bk"},
+    el("div",null, el("div",null, (x.kind==="import"?"Importato":"Esportato")+(x.who?" · "+x.who:"")), el("div",{class:"meta"}, new Date(x.ts).toLocaleString("it-IT")+" · "+x.str.length+" caratteri")),
+    el("div",{class:"row"},
+      el("button",{class:"btn small",type:"button",onclick:()=>{ $("inStr").value=x.str; doDecode(); window.scrollTo({top:0,behavior:"smooth"}); }},"Carica"),
+      el("button",{class:"btn small",type:"button",onclick:()=>copy(x.str)},"Copia"),
+      el("button",{class:"btn x",type:"button",title:"Elimina",onclick:()=>{ if(!confirm("Eliminare questo backup?")) return; const l=store.get(BK,[]); l.splice(i,1); store.set(BK,l); renderBackups(); }},"✕"))
+  )));
+}
+
+/* ================== Azioni ================== */
+async function copy(s){
+  try{ await navigator.clipboard.writeText(s); toast("Copiato negli appunti"); }
+  catch{ const t=$("outStr"); t.value=s; t.select(); try{ document.execCommand("copy"); toast("Copiato"); }catch{ toast("Copia manualmente il testo selezionato"); } }
+}
+function download(name, content){
+  const a=el("a",{href:URL.createObjectURL(new Blob([content],{type:"text/plain"})),download:name});
+  document.body.append(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+}
+const stamp = () => new Date().toISOString().slice(0,16).replace(/[:T]/g,"-");
+
+function doDecode(){
+  const s=$("inStr").value;
+  if(!s.trim()) return status("inStatus","bad","Incolla prima una stringa RSE1.");
+  try{
+    const r=RSE.decode(s);
+    addBackup("import", s.trim());
+    load(r.text, r.tagOk
+      ? ["ok","Salvataggio decodificato ("+r.bytes+" byte). Firma verificata: la stringa è integra."]
+      : ["bad","Decodificato, ma la firma NON è valida: la stringa è stata alterata o è di una versione diversa. Controlla il testo prima di usarlo."]);
+  }catch(e){ status("inStatus","bad",e.message); }
+}
+
+$("decodeBtn").onclick=doDecode;
+$("inStr").addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)) doDecode(); });
+$("pasteBtn").onclick=async()=>{ try{ $("inStr").value=await navigator.clipboard.readText(); doDecode(); }catch{ status("inStatus","info","Il browser non consente la lettura degli appunti: incolla con Ctrl+V."); } };
+$("fileIn").onchange=e=>{ const f=e.target.files[0]; if(!f) return; f.text().then(t=>{ $("inStr").value=t.trim(); doDecode(); }); e.target.value=""; };
+$("plainBtn").onclick=()=>{
+  const t=$("inStr").value.replace(/\r/g,"").trim();
+  if(!t || t.startsWith("RSE1:")) return status("inStatus","info","Incolla nel riquadro il testo in chiaro (righe pick|…, stat|…) e premi di nuovo.");
+  load(t, ["info","Testo in chiaro caricato: puoi modificarlo e generare una stringa RSE1."]);
+};
+$("encodeBtn").onclick=()=>{
+  try{
+    let note="";
+    if($("syncSpec").checked){ const r=syncSpecs(); if(r.changedCls.length){ note=" Build attiva aggiornata per: "+r.changedCls.map(className).join(", ")+"."; changed(true); if(S.tab==="talents"||S.tab==="diff"||S.tab==="raw") renderTab(); }
+      if(r.skipped.length) note+=" Spec non riconosciuta (non modificata) per: "+r.skipped.map(className).join(", ")+"."; }
+    const out=RSE.encode(text()), back=RSE.decode(out);
+    if(!back.tagOk || back.text!==text()) throw new Error("Verifica interna fallita: la stringa generata non si ridecodifica correttamente.");
+    S.lastOut=out; $("outStr").value=out; $("copyBtn").disabled=$("dlBtn").disabled=false;
+    addBackup("export", out);
+    status("outStatus","ok","Stringa generata e verificata ("+out.length+" caratteri). Incollala nel gioco con Import."+note);
+  }catch(e){ status("outStatus","bad",e.message); }
+};
+$("copyBtn").onclick=()=>copy($("outStr").value);
+$("dlBtn").onclick=()=>download("azeroth-save-"+stamp()+".txt",$("outStr").value);
+$("dlPlainBtn").onclick=()=>download("azeroth-save-chiaro-"+stamp()+".txt",text());
+$("resetBtn").onclick=()=>{ if(confirm("Annullare tutte le modifiche e tornare all'originale importato?")){ S.lines=S.original.split("\n"); renderTab(); changed(); } };
+$("themeBtn").onclick=()=>{
+  const r=document.documentElement, dark = r.dataset.theme ? r.dataset.theme==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  r.dataset.theme = dark ? "light" : "dark"; store.set("ase.theme", r.dataset.theme);
+};
+(()=>{ const t=store.get("ase.theme",null); if(t) document.documentElement.dataset.theme=t; })();
+function iconBtnLabel(){ $("iconBtn").textContent = "Icone: "+(iconsOn()?"online":"spente"); }
+$("iconBtn").onclick=()=>{ store.set("ase.icons", !iconsOn()); iconBtnLabel(); if(S.lines.length) renderTab(); };
+iconBtnLabel();
+renderBackups();
+</script>
+</body>
+</html>
