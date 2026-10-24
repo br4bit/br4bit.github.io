@@ -163,6 +163,16 @@ th.q0,th.q1,th.q2,th.q3,th.q4,th.q5{color:color-mix(in srgb,var(--q) 72%,var(--f
 .zcard .zn{display:block;font-weight:600;font-size:14px}
 .unlock{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border:1px dashed var(--gold);border-radius:8px;padding:10px 12px;background:var(--gold-soft);margin-bottom:12px}
 .unlock input[type=number]{width:130px}
+table.gear select{width:100%;max-width:340px}
+table.gear th[scope=row]{white-space:nowrap;font-size:13px;color:var(--fg)}
+.glab{display:none}
+@media (max-width:560px){
+  table.gear thead{display:none}
+  table.gear tr{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;padding:8px 0;border-bottom:1px solid var(--line)}
+  table.gear th,table.gear td{border:0;padding:0}
+  table.gear select{max-width:none}
+  .glab{display:block;font-size:11px;color:var(--mute);margin-bottom:2px}
+}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
 .toast.on{opacity:1}
 </style>
@@ -384,7 +394,7 @@ function diffLines(a,b){
 
 /* ================== Tab ================== */
 const TABS = [
-  ["overview","Panoramica"],["talents","Talenti"],["armory","Armeria"],["zones","Zone"],["seen","Collezione"],["heroes","Eroi"],
+  ["overview","Panoramica"],["talents","Talenti"],["armory","Armeria"],["zones","Zone"],["perks","Perk"],["seen","Collezione"],["heroes","Eroi"],
   ["lines","Tutte le righe"],["raw","Testo"],["diff","Differenze"]
 ];
 function renderTabs(){
@@ -395,7 +405,7 @@ function renderTabs(){
 }
 function renderTab(){
   const b=$("tabBody"); b.innerHTML="";
-  ({overview,talents,armory,zones,seen,heroes,lines:allLines,raw,diff})[S.tab](b);
+  ({overview,talents,armory,zones,perks,seen,heroes,lines:allLines,raw,diff})[S.tab](b);
   if (S.tab!=="diff") changed(true);
 }
 
@@ -419,7 +429,7 @@ function pairEditor(i, fi, sep, opt){
     );
   });
   if (!items.length) box.append(el("div",{class:"empty",style:"grid-column:1/-1"},"Nessuna voce."));
-  const k = el("input",{type:"text",placeholder:"nuovo id",spellcheck:"false"});
+  const k = el("input",{type:"text",placeholder:"nuovo id",spellcheck:"false",list:opt.list||null});
   const v = el("input",{type:"number",value:opt.defVal??"1"});
   const add = el("div",{class:"row",style:"margin-top:8px"}, k, v, el("button",{class:"btn small",type:"button",onclick:()=>{
     const key=clean(k.value.trim(),","+sep); if(!key) return toast("Scrivi un id");
@@ -447,13 +457,6 @@ function overview(b){
     pairEditor(stat,1,"=",{keyLabel:"Statistica",valLabel:"Valore",defVal:"0"})));
   if (items!=null) b.append(el("div",{class:"card"}, el("div",{class:"head"},el("span",{class:"title"},"Oggetti (id)"),el("span",{class:"badge"},"items")),
     el("div",{class:"field"}, el("label",null,"Elenco di id separati da virgola"), txtInput(F(items)[1]||"", v=>setField(items,1,v.replace(/\s+/g,""))))));
-  const rs=idxOf("resets")[0];
-  b.append(el("div",{class:"card"}, el("div",{class:"head"},el("span",{class:"title"},"Reset dei perk"),el("span",{class:"badge"},"resets")),
-    rs==null ? el("p",{class:"hint",style:"margin:0"},"Nessuna riga resets in questo salvataggio: compare dopo il primo reset dei perk fatto in gioco.")
-    : el("div",{class:"row"}, el("span",null,"Valore attuale: ",el("b",{class:"mono"},S.lines[rs])),
-        /^resets\|\d+$/.test(S.lines[rs])
-          ? el("button",{class:"btn small",type:"button",title:"resets conta i reset usati: 0 = di nuovo 2 su 2 disponibili. Perk e tabard acquistati restano.",onclick:()=>{ S.lines[rs]="resets|0"; changed(); renderTab(); toast("Reset riportati a 2/2"); }},"Ripristina 2/2 reset")
-          : el("span",{class:"hint"},"formato non riconosciuto, non modificabile"))));
   if (pick==null && stat==null && items==null) b.append(el("p",{class:"empty"},"Nessuna riga pick/stat/items: usa “Tutte le righe” o “Testo”."));
 }
 
@@ -769,6 +772,33 @@ function armory(b){
     el("div",{class:"scroll"}, el("table",{class:"armory"},
       el("thead",null, el("tr",null, el("th",null,"Slot"), ...QUALS.map(([qn,qc],q)=>el("th",{class:"cc "+qc,title:"Drop: "+DROP[q]},qn)))), tb)),
     el("p",{class:"hint",style:"margin:10px 0 0"},"Ogni casella aggiunge o toglie l'id dalla riga items (id = 100000 + classe×1000 + slot×100 + rarità×10). Ladro e Sciamano hanno anche la mano secondaria (10 slot, 60 pezzi; 498 in tutto). Passa sopra una casella per nome e zona di drop: i nomi reali sono verificati solo per lo Sciamano. Gli id fuori da questo schema restano invariati.")));
+  b.append(gearEditor(c, itemSet()));
+}
+/* ---- scheda Perk ---- */
+const KNOWN_PERKS = ["banish","companion","instinct_gold","keen","opening"]; // id visti nei salvataggi reali
+function appendLine(l){ let at=S.lines.length; if(at&&S.lines[at-1]==="") at--; S.lines.splice(at,0,l); changed(); }
+function perks(b){
+  const pi=idxOf("perk")[0];
+  const dl=el("datalist",{id:"perkIds"}, ...KNOWN_PERKS.map(p=>el("option",{value:p})));
+  b.append(el("div",{class:"card"}, dl,
+    el("div",{class:"head"}, el("span",{class:"title"},"Perk permanenti"), el("span",{class:"badge"}, pi==null?"perk":"perk · "+parsePairs(F(pi)[1],":").length)),
+    pi!=null ? pairEditor(pi,1,":",{keyLabel:"Perk",valLabel:"Rango",defVal:"1",list:"perkIds"})
+      : el("div",{class:"row"}, el("span",{class:"hint"},"Nessuna riga perk: compare dopo il primo perk acquistato in gioco."),
+          el("button",{class:"btn small",type:"button",onclick:()=>{ appendLine("perk|"); renderTab(); }},"Crea riga perk")),
+    el("p",{class:"hint",style:"margin:10px 0 0"},"Formato perk|id:rango,… . Id noti finora: "+KNOWN_PERKS.join(", ")+". I ranghi massimi non sono documentati: valori oltre quelli acquistabili in gioco potrebbero essere scartati.")));
+  const ti=idxOf("tabard")[0];
+  b.append(el("div",{class:"card"},
+    el("div",{class:"head"}, el("span",{class:"title"},"Tabard"), el("span",{class:"badge"},"tabard")),
+    ti!=null ? el("div",{class:"fields"}, el("div",{class:"field"}, el("label",null,"Id tabard (campo 2)"), txtInput(F(ti).slice(1).join("|"), v=>{ S.lines[ti]="tabard|"+v.replace(/\s+/g,""); changed(); }, "")))
+      : el("p",{class:"hint",style:"margin:0"},"Nessuna riga tabard: compare quando ne ottieni uno in gioco."),
+    el("p",{class:"hint",style:"margin:10px 0 0"},"Id visto finora: 90020. Può contenere più id separati da virgola se il gioco ne salva più di uno.")));
+  const rs=idxOf("resets")[0];
+  b.append(el("div",{class:"card"}, el("div",{class:"head"},el("span",{class:"title"},"Reset dei perk"),el("span",{class:"badge"},"resets")),
+    rs==null ? el("p",{class:"hint",style:"margin:0"},"Nessuna riga resets in questo salvataggio: compare dopo il primo reset dei perk fatto in gioco.")
+    : el("div",{class:"row"}, el("span",null,"Valore attuale: ",el("b",{class:"mono"},S.lines[rs])),
+        /^resets\|\d+$/.test(S.lines[rs])
+          ? el("button",{class:"btn small",type:"button",title:"resets conta i reset usati: 0 = di nuovo 2 su 2 disponibili. Perk e tabard acquistati restano.",onclick:()=>{ S.lines[rs]="resets|0"; changed(); renderTab(); toast("Reset riportati a 2/2"); }},"Ripristina 2/2 reset")
+          : el("span",{class:"hint"},"formato non riconosciuto, non modificabile"))));
 }
 /* ---- scheda Zone ---- */
 const ZONES = [["Elwynn Forest","elwynn"],["Duskwood","duskwood"],["Warsong Gulch","wsg"],["Un’Goro Crater","ungoro"],["Arathi Basin","ab"],["Feralas","feralas"],["Gurubashi Arena","arena"],["Scarlet Monastery","sm"],["Alterac Valley","av"],["Blackrock Mountain","brm"],["Gates of Ahn’Qiraj","aq"],["Naxxramas","naxx"]];
@@ -829,6 +859,47 @@ function zones(b){
     card.append(el("p",{class:"hint",style:"margin:10px 0 0"},"Completare le zone precedenti è il modo verificato in gioco per avanzare. Le zone completate vanno nella riga beat|classe|…; la zona selezionata (open) non viene toccata."));
   }
   b.append(card);
+}
+/* equip|classe|chiave:id,…  e  look|classe|…  (chiave = slot WoW − 1) */
+const SLOT_KEYS = [0,2,4,5,6,7,8,9,15,16];
+const slotKey = (c,s) => (String(c)==="3" && s===8) ? 17 : SLOT_KEYS[s]; // il Cacciatore usa lo slot a distanza (visto: look|3|…17:103840)
+const itemLabel = id => { const n=Number(id), c=Math.floor(n/1000)%100, s=Math.floor(n/100)%10, q=Math.floor(n/10)%10;
+  return (itemName(c,s,q) || ((QUALS[q]||["?"])[0]+" · "+(SLOTS[s]||"slot "+s)))+" ("+id+")"; };
+function gearLine(kind,c,create){
+  let i=S.lines.findIndex(l=>l.startsWith(kind+"|"+c+"|"));
+  if(i<0 && create){
+    const prev=S.lines.reduce((m,l,j)=>/^(equip|look)\|/.test(l)?j:m,-1);
+    const at=prev>=0?prev+1:(idxOf("items")[0]??-1)+1;
+    S.lines.splice(at,0,kind+"|"+c+"|"); i=at;
+  }
+  return i;
+}
+function gearMap(kind,c){ const i=gearLine(kind,c,false); const m={}; if(i>=0) for(const [k,v] of parsePairs(F(i).slice(2).join("|"),":")) m[k]=v; return m; }
+function setGear(kind,c,key,id){
+  const m=gearMap(kind,c); if(id) m[key]=id; else delete m[key];
+  const i=gearLine(kind,c,true);
+  S.lines[i]=kind+"|"+c+"|"+Object.keys(m).sort((a,b)=>a-b).map(k=>k+":"+m[k]).join(",");
+  changed();
+}
+function gearEditor(c, owned){
+  const eq=gearMap("equip",c), lk=gearMap("look",c), tb=el("tbody");
+  for(let s=0;s<slotCount(c);s++){
+    const key=String(slotKey(c,s)), opts=[];
+    for(let q=0;q<6;q++){ const id=itemId(c,s,q); if(owned.has(id)) opts.push(id); }
+    const sel=(kind,cur)=>{ const ids=[...new Set(opts.concat(cur?[cur]:[]))];
+      const e=el("select",{"aria-label":(kind==="equip"?"Indossato ":"Aspetto ")+SLOTS[s],onchange:ev=>{ setGear(kind,c,key,ev.target.value); renderTabKeepScroll(); }},
+        el("option",{value:""},"— vuoto —"), ...ids.map(id=>el("option",{value:id},itemLabel(id)+(owned.has(id)?"":" · non posseduto"))));
+      e.value=cur||""; return e; };
+    tb.append(el("tr",null, el("th",{scope:"row"},SLOTS[s], el("div",{class:"hint mono"},"slot "+key)), el("td",null,el("span",{class:"glab"},"Indossato"),sel("equip",eq[key])), el("td",null,el("span",{class:"glab"},"Aspetto"),sel("look",lk[key]))));
+  }
+  const best=(kind,filter)=>{ for(let s=0;s<slotCount(c);s++){ for(let q=5;q>=0;q--){ const id=itemId(c,s,q); if(owned.has(id)&&filter(q)){ const m=gearMap(kind,c); m[String(slotKey(c,s))]=id; const i=gearLine(kind,c,true); S.lines[i]=kind+"|"+c+"|"+Object.keys(m).sort((a,b)=>a-b).map(k=>k+":"+m[k]).join(","); break; } } } changed(); renderTabKeepScroll(); };
+  return el("div",{class:"card"},
+    el("div",{class:"head"}, el("span",{class:"title"},"Indossato e aspetto · "+className(c)),
+      el("span",{class:"row"},
+        el("button",{class:"btn small",type:"button",title:"Per ogni slot indossa il pezzo posseduto di rarità più alta",onclick:()=>best("equip",()=>true)},"Indossa il migliore"),
+        el("button",{class:"btn small",type:"button",title:"Come sopra, escludendo il PvP",onclick:()=>best("equip",q=>q!==4)},"Migliore tranne PvP"))),
+    el("div",{class:"scroll"}, el("table",{class:"gear"}, el("thead",null, el("tr",null, el("th",null,"Slot"), el("th",null,"Indossato (equip)"), el("th",null,"Aspetto (look)"))), tb)),
+    el("p",{class:"hint",style:"margin:10px 0 0"},"Le tendine mostrano solo i pezzi posseduti (riga items) di quello slot. La chiave è lo slot di WoW meno 1; l'arma del Cacciatore usa lo slot 17 (visto nel tuo salvataggio), la mano secondaria di Ladro e Sciamano il 16 (dedotto, non ancora verificato)."));
 }
 function renderTabKeepScroll(){ const y=window.scrollY; renderTab(); window.scrollTo(0,y); }
 
