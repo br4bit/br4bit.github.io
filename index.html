@@ -198,12 +198,12 @@ table.gear th[scope=row]{white-space:nowrap;font-size:13px;color:var(--fg)}
 
   <section class="panel" id="importPanel">
     <h2>1 · Importa il salvataggio</h2>
-    <textarea id="inStr" rows="4" placeholder="Incolla qui la stringa RSE1:…" spellcheck="false" autocomplete="off"></textarea>
+    <textarea id="inStr" rows="4" placeholder="Incolla qui la stringa RSE1:… oppure trascina qui il file .sav" spellcheck="false" autocomplete="off"></textarea>
     <div class="row" style="margin-top:8px">
       <button class="btn primary" id="decodeBtn" type="button">Decodifica</button>
       <button class="btn" id="pasteBtn" type="button">Incolla dagli appunti</button>
-      <label class="btn" for="fileIn" style="display:inline-block">Apri file…</label>
-      <input type="file" id="fileIn" accept=".txt,text/plain" class="hidden">
+      <label class="btn" for="fileIn" style="display:inline-block">Apri file .sav…</label>
+      <input type="file" id="fileIn" accept=".sav,.txt,text/plain,application/octet-stream" class="hidden">
       <button class="btn ghost" id="plainBtn" type="button" title="Parti da un testo in chiaro già decodificato">Parti da testo in chiaro</button>
     </div>
     <div class="status" id="inStatus" role="status"></div>
@@ -228,7 +228,7 @@ table.gear th[scope=row]{white-space:nowrap;font-size:13px;color:var(--fg)}
         <textarea class="out" id="outStr" readonly placeholder="La stringa generata apparirà qui" spellcheck="false"></textarea>
         <div class="row" style="margin-top:8px">
           <button class="btn" id="copyBtn" type="button" disabled>Copia</button>
-          <button class="btn" id="dlBtn" type="button" disabled>Scarica .txt</button>
+          <button class="btn" id="dlBtn" type="button" disabled>Scarica .sav</button>
           <button class="btn ghost" id="dlPlainBtn" type="button" title="Scarica il testo in chiaro attuale">Scarica testo</button>
         </div>
         <div class="status" id="outStatus" role="status"></div>
@@ -1038,11 +1038,12 @@ async function copy(s){
   try{ await navigator.clipboard.writeText(s); toast("Copiato negli appunti"); }
   catch{ const t=$("outStr"); t.value=s; t.select(); try{ document.execCommand("copy"); toast("Copiato"); }catch{ toast("Copia manualmente il testo selezionato"); } }
 }
-function download(name, content){
-  const a=el("a",{href:URL.createObjectURL(new Blob([content],{type:"text/plain"})),download:name});
+function download(name, content, type){
+  const a=el("a",{href:URL.createObjectURL(new Blob([content],{type:type||"text/plain"})),download:name});
   document.body.append(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
 }
-const stamp = () => new Date().toISOString().slice(0,16).replace(/[:T]/g,"-");
+const stamp = () => { const d=new Date(), p=n=>String(n).padStart(2,"0");
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"_"+p(d.getHours())+"-"+p(d.getMinutes())+"-"+p(d.getSeconds()); };
 
 function doDecode(){
   const s=$("inStr").value;
@@ -1059,6 +1060,8 @@ function doDecode(){
 $("decodeBtn").onclick=doDecode;
 $("inStr").addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)) doDecode(); });
 $("pasteBtn").onclick=async()=>{ try{ $("inStr").value=await navigator.clipboard.readText(); doDecode(); }catch{ status("inStatus","info","Il browser non consente la lettura degli appunti: incolla con Ctrl+V."); } };
+$("inStr").addEventListener("dragover",e=>e.preventDefault());
+$("inStr").addEventListener("drop",e=>{ const f=e.dataTransfer&&e.dataTransfer.files[0]; if(!f) return; e.preventDefault(); f.text().then(t=>{ $("inStr").value=t.trim(); doDecode(); }); });
 $("fileIn").onchange=e=>{ const f=e.target.files[0]; if(!f) return; f.text().then(t=>{ $("inStr").value=t.trim(); doDecode(); }); e.target.value=""; };
 $("plainBtn").onclick=()=>{
   const t=$("inStr").value.replace(/\r/g,"").trim();
@@ -1078,8 +1081,9 @@ $("encodeBtn").onclick=()=>{
   }catch(e){ status("outStatus","bad",e.message); }
 };
 $("copyBtn").onclick=()=>copy($("outStr").value);
-$("dlBtn").onclick=()=>download("save-"+stamp()+".txt",$("outStr").value);
-$("dlPlainBtn").onclick=()=>download("save-chiaro-"+stamp()+".txt",text());
+// stesso formato del .sav del gioco: solo la stringa RSE1, senza a-capo finale
+$("dlBtn").onclick=()=>download("save_"+stamp()+".sav",$("outStr").value.trim(),"application/octet-stream");
+$("dlPlainBtn").onclick=()=>download("save-chiaro_"+stamp()+".txt",text());
 $("resetBtn").onclick=()=>{ if(confirm("Annullare tutte le modifiche e tornare all'originale importato?")){ S.lines=S.original.split("\n"); renderTab(); changed(); } };
 $("themeBtn").onclick=()=>{
   const r=document.documentElement, dark = r.dataset.theme ? r.dataset.theme==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
