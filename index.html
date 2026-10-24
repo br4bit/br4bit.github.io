@@ -807,11 +807,27 @@ const zoneName = k => (ZONES.find(z=>z[1]===k)||[k])[0];
 const zLine = (kind,c,lines) => (lines||S.lines).findIndex(l=>l.startsWith(kind+"|"+c+"|"));
 const zoneInit = c => ["open","beat","unlock"].some(k=>zLine(k,c)>=0);
 function beatSet(c){ const i=zLine("beat",c); return new Set(i<0?[]:S.lines[i].split("|").slice(2).join("|").split(",").filter(Boolean)); }
+/* Posizioni osservate in un salvataggio reale: open| dopo pick|, beat| dopo stat|. */
+function insertLineAfter(prefixes, fallbacks, line){
+  let at=-1;
+  S.lines.forEach((l,j)=>{ if(prefixes.some(p=>l.startsWith(p))) at=j; });
+  if(at<0) for(const p of fallbacks){ const j=S.lines.findIndex(l=>l.startsWith(p)); if(j>=0){ at=j; break; } }
+  if(at<0){ let e=S.lines.length; if(e&&S.lines[e-1]==="") e--; S.lines.splice(e,0,line); return e; }
+  S.lines.splice(at+1,0,line); return at+1;
+}
+/* Inizializza i progressi zone di una classe come fa il gioco: open|classe|prossima zona, beat|classe|zone completate. */
+function initZones(c, targetKey){
+  const ti=Math.max(0,zoneIdx(targetKey)), cleared=ZONES.slice(0,ti).map(z=>z[1]);
+  if(zLine("open",c)<0) insertLineAfter(["open|"],["pick|"],"open|"+c+"|"+ZONES[Math.min(ti,ZONES.length-1)][1]);
+  if(cleared.length && zLine("beat",c)<0) insertLineAfter(["beat|"],["stat|","achat|","ach|","seen|"],"beat|"+c+"|"+cleared.join(","));
+  changed();
+}
+const heroUnlocked = c => { const i=idxOf("hero").find(i=>F(i)[1]===String(c)); return i==null ? null : F(i)[3]==="1"; };
 function writeBeat(c,set){
   const vals=[...set].sort((a,b)=>zoneIdx(a)-zoneIdx(b)||a.localeCompare(b));
   const i=zLine("beat",c);
   if(i>=0) S.lines[i]="beat|"+c+"|"+vals.join(",");
-  else if(vals.length){ let at=S.lines.length; if(at&&S.lines[at-1]==="") at--; S.lines.splice(at,0,"beat|"+c+"|"+vals.join(",")); }
+  else if(vals.length) insertLineAfter(["beat|"],["stat|","achat|","ach|","seen|"],"beat|"+c+"|"+vals.join(","));
   // salvataggi vecchi: unlock|classe|N = zona più lontana sbloccata (1-based)
   const u=zLine("unlock",c);
   if(u>=0 && /^unlock\|\d+\|\d+$/.test(S.lines[u])){
@@ -828,12 +844,39 @@ function zones(b){
   for(const c of classes) bar.append(el("button",{class:"chip",type:"button","aria-pressed":String(S.zcls===c),onclick:()=>{S.zcls=c;renderTab();}},
     icon(CLASS_ICON[c],className(c),"ico sm"), className(c), el("span",{class:"cnt"}, zoneInit(c)? beatSet(c).size+"/12" : "—")));
   b.append(bar);
+  const missing=classes.filter(c=>!zoneInit(c) && idxOf("hero").some(i=>F(i)[1]===c));
+  if(missing.length){
+    const gsel=el("select",{"aria-label":"Sblocca tutte fino a"}, ...ZONES.map(([n,k])=>el("option",{value:k},n)));
+    gsel.value="elwynn";
+    const onlyUnlocked=el("input",{type:"checkbox",id:"zOnlyUnl",checked:true});
+    b.append(el("div",{class:"unlock"},
+      el("div",null, el("strong",null,"Inizializza tutte le classi senza zone (sperimentale)"),
+        el("div",{class:"hint"}, missing.length+" classi senza progressi zone: "+missing.map(className).join(", ")+"."),
+        el("label",{for:"zOnlyUnl",class:"hint",style:"display:flex;gap:6px;align-items:center;margin-top:4px"}, onlyUnlocked, "Solo le classi con flag hero a 1 (probabilmente già sbloccate)")),
+      el("div",{class:"row"}, el("span",{class:"hint"},"fino a"), gsel,
+        el("button",{class:"btn primary small",type:"button",onclick:()=>{
+          const list=missing.filter(c=>!onlyUnlocked.checked || heroUnlocked(c)!==false);
+          if(!list.length) return toast("Nessuna classe da inizializzare con questo filtro");
+          if(!confirm("Inizializzare le zone fino a "+zoneName(gsel.value)+" per: "+list.map(className).join(", ")+"? Funzione sperimentale: tieni un backup.")) return;
+          for(const c of list) initZones(c,gsel.value);
+          renderTab(); toast(list.length+" classi inizializzate"); }},"Inizializza"))));
+  }
   const c=S.zcls, init=zoneInit(c), beat=beatSet(c), oi=zLine("open",c), ui=zLine("unlock",c);
   const card=el("div",{class:"card"},
     el("div",{class:"head"}, el("span",{class:"row"}, icon(CLASS_ICON[c],className(c),"ico lg"), el("span",{class:"title"},"Zone · "+className(c))),
       el("span",{class:"spent"}, init ? beat.size+" / 12 completate" : "non inizializzate")));
   if(!init){
-    card.append(el("div",{class:"status info",style:"display:block"},"Questo salvataggio non ha progressi zone per "+className(c)+" (nessuna riga open, beat o unlock). Gioca una partita con questa classe, esporta un salvataggio nuovo e riprova: creare i progressi da zero può corrompere l'account."));
+    const hu=heroUnlocked(c), tsel=el("select",{"aria-label":"Sblocca fino a"}, ...ZONES.map(([n,k])=>el("option",{value:k},n)));
+    tsel.value="elwynn";
+    card.append(el("div",{class:"status info",style:"display:block"},"Questo salvataggio non ha progressi zone per "+className(c)+" (nessuna riga open, beat o unlock). Il modo sicuro è giocare una partita con questa classe e riesportare."),
+      hu===false ? el("div",{class:"status bad",style:"display:block;margin-top:8px"},"Attenzione: la riga hero di "+className(c)+" ha il flag a 0, probabilmente la classe non è ancora sbloccata nel gioco. Creare zone per una classe bloccata è il caso più rischioso.") : null,
+      el("div",{class:"unlock",style:"margin-top:10px"},
+        el("div",null, el("strong",null,"Inizializza le zone (sperimentale)"),
+          el("div",{class:"hint"},"Crea le righe come le scrive il gioco: open|classe|zona di partenza dopo pick, e beat|classe|zone precedenti dopo stat. Tieni un backup e prova su una classe sola.")),
+        el("div",{class:"row"}, el("span",{class:"hint"},"Sblocca fino a"), tsel,
+          el("button",{class:"btn primary small",type:"button",onclick:()=>{
+            if(!confirm("Creare i progressi zone per "+className(c)+" fino a "+zoneName(tsel.value)+"? È una funzione sperimentale: tieni la stringa originale come backup.")) return;
+            initZones(c,tsel.value); renderTab(); toast("Zone inizializzate per "+className(c)); }},"Inizializza"))));
   } else {
     card.append(el("div",{class:"zbar"}, el("span",{style:"width:"+(beat.size/12*100)+"%"})));
     const info=[];
@@ -851,9 +894,9 @@ function zones(b){
       el("span",{class:"hint"},"Sblocca fino a"), sel,
       el("button",{class:"btn small",type:"button",title:"Segna come completate tutte le zone prima di quella scelta (la destinazione resta da fare)",onclick:()=>{ const st=beatSet(c); for(let i=0;i<zoneIdx(sel.value);i++) st.add(ZONES[i][1]); writeBeat(c,st); renderTab(); toast("Prerequisiti completati"); }},"Completa i prerequisiti"),
       el("button",{class:"btn small",type:"button",onclick:()=>{ writeBeat(c,new Set(ZONES.map(z=>z[1]))); renderTab(); }},"Tutte e 12"),
-      el("button",{class:"btn small ghost",type:"button",title:"Rimetti le righe beat e unlock di questa classe come nel salvataggio importato",onclick:()=>{
+      el("button",{class:"btn small ghost",type:"button",title:"Rimetti le righe open, beat e unlock di questa classe come nel salvataggio importato (se la classe non le aveva, vengono tolte)",onclick:()=>{
         const orig=S.original.split("\n");
-        for(const kind of ["beat","unlock"]){ const o=orig.find(l=>l.startsWith(kind+"|"+c+"|")), i=zLine(kind,c);
+        for(const kind of ["open","beat","unlock"]){ const o=orig.find(l=>l.startsWith(kind+"|"+c+"|")), i=zLine(kind,c);
           if(o!=null && i>=0) S.lines[i]=o; else if(o!=null){ let at=S.lines.length; if(at&&S.lines[at-1]==="") at--; S.lines.splice(at,0,o); } else if(i>=0) S.lines.splice(i,1); }
         changed(); renderTab(); toast("Zone ripristinate"); }},"Ripristina importate")));
     card.append(el("p",{class:"hint",style:"margin:10px 0 0"},"Completare le zone precedenti è il modo verificato in gioco per avanzare. Le zone completate vanno nella riga beat|classe|…; la zona selezionata (open) non viene toccata."));
