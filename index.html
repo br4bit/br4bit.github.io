@@ -775,7 +775,8 @@ function armory(b){
   b.append(gearEditor(c, itemSet()));
 }
 /* ---- scheda Perk ---- */
-const KNOWN_PERKS = ["banish","companion","instinct_gold","keen","opening"]; // id visti nei salvataggi reali
+const KNOWN_PERKS = ["banish","companion","instinct_gold","keen","leash","opening","paws","rerolls","skip","veteran"];
+const KNOWN_PETS = ["rabbit","squirrel"]; // id visti nei salvataggi reali
 function appendLine(l){ let at=S.lines.length; if(at&&S.lines[at-1]==="") at--; S.lines.splice(at,0,l); changed(); }
 function perks(b){
   const pi=idxOf("perk")[0];
@@ -792,6 +793,18 @@ function perks(b){
     ti!=null ? el("div",{class:"fields"}, el("div",{class:"field"}, el("label",null,"Id tabard (campo 2)"), txtInput(F(ti).slice(1).join("|"), v=>{ S.lines[ti]="tabard|"+v.replace(/\s+/g,""); changed(); }, "")))
       : el("p",{class:"hint",style:"margin:0"},"Nessuna riga tabard: compare quando ne ottieni uno in gioco."),
     el("p",{class:"hint",style:"margin:10px 0 0"},"Id visto finora: 90020. Può contenere più id separati da virgola se il gioco ne salva più di uno.")));
+  { const pe=idxOf("pets")[0], list=pe==null?[]:(F(pe)[1]||"").split(",").filter(Boolean);
+    const write=arr=>{ const v="pets|"+arr.join(","); if(pe==null) insertLineAfter(["tabard|","perk|"],["resets|"],v); else S.lines[pe]=v; changed(); renderTab(); };
+    const inp=el("input",{type:"text",placeholder:"id compagno",spellcheck:"false",list:"petIds"});
+    b.append(el("div",{class:"card"}, el("datalist",{id:"petIds"}, ...KNOWN_PETS.map(p=>el("option",{value:p}))),
+      el("div",{class:"head"}, el("span",{class:"title"},"Compagni"), el("span",{class:"badge"},"pets · "+list.length)),
+      list.length ? el("div",{class:"row"}, ...list.map(p=>el("span",{class:"chip",style:"cursor:default;padding:3px 4px 3px 10px"}, p,
+          el("button",{class:"btn x",type:"button",title:"Rimuovi",onclick:()=>write(list.filter(x=>x!==p))},"✕"))))
+        : el("p",{class:"hint",style:"margin:0"},"Nessun compagno in questo salvataggio."),
+      el("div",{class:"row",style:"margin-top:10px"}, inp, el("button",{class:"btn small",type:"button",onclick:()=>{
+        const v=clean(inp.value.trim(),",").toLowerCase(); if(!v) return toast("Scrivi un id"); if(list.includes(v)) return toast("Già presente"); write(list.concat(v)); }},"Aggiungi")),
+      el("p",{class:"hint",style:"margin:10px 0 0"},"Formato pets|id,id,… . Id visti finora: "+KNOWN_PETS.join(", ")+".")));
+  }
   const rs=idxOf("resets")[0];
   b.append(el("div",{class:"card"}, el("div",{class:"head"},el("span",{class:"title"},"Reset dei perk"),el("span",{class:"badge"},"resets")),
     rs==null ? el("p",{class:"hint",style:"margin:0"},"Nessuna riga resets in questo salvataggio: compare dopo il primo reset dei perk fatto in gioco.")
@@ -852,7 +865,7 @@ function zones(b){
     b.append(el("div",{class:"unlock"},
       el("div",null, el("strong",null,"Inizializza tutte le classi senza zone (sperimentale)"),
         el("div",{class:"hint"}, missing.length+" classi senza progressi zone: "+missing.map(className).join(", ")+"."),
-        el("label",{for:"zOnlyUnl",class:"hint",style:"display:flex;gap:6px;align-items:center;margin-top:4px"}, onlyUnlocked, "Solo le classi con flag hero a 1 (probabilmente già sbloccate)")),
+        el("label",{for:"zOnlyUnl",class:"hint",style:"display:flex;gap:6px;align-items:center;margin-top:4px"}, onlyUnlocked, "Solo le classi già giocate (flag hero a 1)")),
       el("div",{class:"row"}, el("span",{class:"hint"},"fino a"), gsel,
         el("button",{class:"btn primary small",type:"button",onclick:()=>{
           const list=missing.filter(c=>!onlyUnlocked.checked || heroUnlocked(c)!==false);
@@ -869,7 +882,7 @@ function zones(b){
     const hu=heroUnlocked(c), tsel=el("select",{"aria-label":"Sblocca fino a"}, ...ZONES.map(([n,k])=>el("option",{value:k},n)));
     tsel.value="elwynn";
     card.append(el("div",{class:"status info",style:"display:block"},"Questo salvataggio non ha progressi zone per "+className(c)+" (nessuna riga open, beat o unlock). Il modo sicuro è giocare una partita con questa classe e riesportare."),
-      hu===false ? el("div",{class:"status bad",style:"display:block;margin-top:8px"},"Attenzione: la riga hero di "+className(c)+" ha il flag a 0, probabilmente la classe non è ancora sbloccata nel gioco. Creare zone per una classe bloccata è il caso più rischioso.") : null,
+      hu===false ? el("div",{class:"status bad",style:"display:block;margin-top:8px"},"Attenzione: la riga hero di "+className(c)+" ha il flag a 0: la classe non risulta ancora giocata. Creare zone per una classe bloccata è il caso più rischioso.") : null,
       el("div",{class:"unlock",style:"margin-top:10px"},
         el("div",null, el("strong",null,"Inizializza le zone (sperimentale)"),
           el("div",{class:"hint"},"Crea le righe come le scrive il gioco: open|classe|zona di partenza dopo pick, e beat|classe|zone precedenti dopo stat. Tieni un backup e prova su una classe sola.")),
@@ -942,7 +955,7 @@ function gearEditor(c, owned){
         el("button",{class:"btn small",type:"button",title:"Per ogni slot indossa il pezzo posseduto di rarità più alta",onclick:()=>best("equip",()=>true)},"Indossa il migliore"),
         el("button",{class:"btn small",type:"button",title:"Come sopra, escludendo il PvP",onclick:()=>best("equip",q=>q!==4)},"Migliore tranne PvP"))),
     el("div",{class:"scroll"}, el("table",{class:"gear"}, el("thead",null, el("tr",null, el("th",null,"Slot"), el("th",null,"Indossato (equip)"), el("th",null,"Aspetto (look)"))), tb)),
-    el("p",{class:"hint",style:"margin:10px 0 0"},"Le tendine mostrano solo i pezzi posseduti (riga items) di quello slot. La chiave è lo slot di WoW meno 1; l'arma del Cacciatore usa lo slot 17 (visto nel tuo salvataggio), la mano secondaria di Ladro e Sciamano il 16 (dedotto, non ancora verificato)."));
+    el("p",{class:"hint",style:"margin:10px 0 0"},"Le tendine mostrano solo i pezzi posseduti (riga items) di quello slot. La chiave è lo slot di WoW meno 1; l'arma del Cacciatore usa lo slot 17 (visto nel tuo salvataggio), la mano secondaria di Ladro e Sciamano il 16 (verificato su un salvataggio dello Sciamano)."));
 }
 function renderTabKeepScroll(){ const y=window.scrollY; renderTab(); window.scrollTo(0,y); }
 
@@ -969,12 +982,12 @@ function heroes(b){
       el("td",{class:"act"}, el("button",{class:"btn x",type:"button",title:"Rimuovi",onclick:()=>{S.lines.splice(i,1);changed();renderTab();}},"✕"))
     ));
   }
-  b.append(el("div",{class:"scroll"}, el("table",null, el("thead",null, el("tr",null, el("th",null,"Classe"),el("th",null,"Valore A"),el("th",null,"Valore B"),el("th",null,"Valori (csv)"),el("th"))), tb)));
+  b.append(el("div",{class:"scroll"}, el("table",null, el("thead",null, el("tr",null, el("th",null,"Classe"),el("th",null,"Valore A"),el("th",null,"Giocata (0/1)"),el("th",null,"Valori (csv)"),el("th"))), tb)));
   if(!h.length) b.append(el("p",{class:"empty"},"Nessuna riga hero."));
   b.append(el("div",{class:"row",style:"margin-top:10px"}, el("button",{class:"btn small",type:"button",onclick:()=>{
     const last=h.length?h[h.length-1]+1:S.lines.length; S.lines.splice(last,0,"hero|1|1|0|0,0,0,0,0"); changed(); renderTab();
   }},"Aggiungi eroe")),
-  el("p",{class:"hint"},"Valore A e B non sono documentati: nel personaggio selezionato coincidono con i campi 2 e 3 della riga pick. ID classe come in WoW."));
+  el("p",{class:"hint"},"Il flag Giocata passa da 0 a 1 la prima volta che giochi la classe (osservato su Guerriero, Stregone e Druido). Valore A non è documentato: non è il livello e può anche diminuire. Nel personaggio selezionato A e flag coincidono con i campi 2 e 3 della riga pick. ID classe come in WoW."));
 }
 
 /* --- Tutte le righe --- */
