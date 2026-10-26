@@ -352,7 +352,8 @@ const store = {
 };
 const clean = (v, extra="") => String(v).replace(new RegExp("[|\\r\\n"+extra+"]","g"), "");
 
-const CLASSES = {1:"Guerriero",2:"Paladino",3:"Cacciatore",4:"Ladro",5:"Sacerdote",6:"Cavaliere della Morte",7:"Sciamano",8:"Mago",9:"Stregone",10:"Monaco",11:"Druido",12:"Cacciatore di Demoni",13:"Evocatore"};
+// Le 9 classi del gioco (numerazione WoW classic: 6 e 10 non esistono qui)
+const CLASSES = {1:"Guerriero",2:"Paladino",3:"Cacciatore",4:"Ladro",5:"Sacerdote",7:"Sciamano",8:"Mago",9:"Stregone",11:"Druido"};
 const className = id => CLASSES[id] ? CLASSES[id] : "Classe "+id;
 
 /* ================== Stato ================== */
