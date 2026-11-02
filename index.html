@@ -189,6 +189,24 @@ table.gear th[scope=row]{white-space:nowrap;font-size:13px;color:var(--fg)}
 .achg{display:grid;grid-template-columns:70px minmax(0,1fr);gap:8px;align-items:start}
 .achg .row{gap:6px}
 @media (max-width:560px){.achg{grid-template-columns:minmax(0,1fr)}}
+.heroes{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+@media (max-width:560px){.heroes{grid-template-columns:minmax(0,1fr)}}
+.hfeats{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+.hfeats input{width:100%}
+.achcat details{border-top:1px solid var(--line);padding:6px 0}
+.achcat summary{cursor:pointer;padding:4px 0}
+.achrows{display:grid;gap:4px;margin-top:6px}
+.achrow{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel2)}
+.unlock label input[type=checkbox]{width:16px;height:16px;flex:0 0 auto;margin:0}
+.achrow.statrow{grid-template-columns:84px minmax(0,1fr) auto}
+.achrow.statrow .pts{font-size:12px}
+.achrow .pts{font:700 14px var(--mono);color:var(--gold);text-align:center}
+.achrow.ok{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}
+.achrow .st{display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right}
+.tag{font:600 11px var(--sans);padding:2px 7px;border-radius:999px;background:var(--panel);border:1px solid var(--line);color:var(--mute);white-space:nowrap}
+.tag.ok{color:var(--ok);border-color:var(--ok)}
+.tag.ready{color:var(--gold);border-color:var(--gold);white-space:normal;max-width:180px}
+@media (max-width:560px){.achrow{grid-template-columns:36px minmax(0,1fr)}.achrow .st{grid-column:1/-1;flex-direction:row;justify-content:flex-end;align-items:center}}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
 .toast.on{opacity:1}
 </style>
@@ -460,7 +478,7 @@ function pairEditor(i, fi, sep, opt){
 function overview(b){
   const pick=idxOf("pick")[0], stat=idxOf("stat")[0], items=idxOf("items")[0];
   if (pick!=null){
-    const f=F(pick), labels=["Classe (ID)","Campo 2","Campo 3","Zona","Nome","Valori A (csv)", /^\d$/.test(f[7]||"") ? "Difficoltà selezionata (0 Normale, 1-5 Eroico)" : "Valori B (csv)"];
+    const f=F(pick), labels=["Classe (ID)","Razza (ID)","Sesso (0 maschio, 1 femmina)","Zona","Nome","Aspetto (pelle,viso,capelli,colore,piercing; da 0)", /^\d$/.test(f[7]||"") ? "Difficoltà selezionata (0 Normale, 1-5 Eroico)" : "Valori B (csv)"];
     const grid=el("div",{class:"fields"});
     for(let k=1;k<f.length;k++){
       const lab=labels[k-1]||("Campo "+(k+1));
@@ -468,10 +486,22 @@ function overview(b){
       grid.append(el("div",{class:"field"}, el("label",null,lab), inp, k===1?el("div",{class:"hint"},className(f[1])):null));
     }
     b.append(el("div",{class:"card"}, el("div",{class:"head"},el("span",{class:"title"},"Personaggio selezionato"),el("span",{class:"badge"},"pick")), grid,
-      el("p",{class:"hint",style:"margin:10px 0 0"},"I campi 2 e 3 coincidono con la riga hero della stessa classe: se li cambi, allinea anche quella.")));
+      el("p",{class:"hint",style:"margin:10px 0 0"},"Razza, sesso e aspetto sono una copia della riga hero della classe selezionata: per cambiarli usa la scheda Eroi, che aggiorna entrambe.")));
   }
-  if (stat!=null) b.append(el("div",{class:"card"}, el("div",{class:"head"},el("span",{class:"title"},"Statistiche account"),el("span",{class:"badge"},"stat")),
-    pairEditor(stat,1,"=",{keyLabel:"Statistica",valLabel:"Valore",defVal:"0"})));
+  if (stat!=null){
+    const TH={kills:[[10000,"Exterminator"],[100000,"Scourge of Azeroth"],[1000000,"A Million Dead"]],gold:[[5000,"Pocket Change"],[50000,"Treasure Hunter"]],guardians:[[100,"Lair Raider"],[500,"Warden's Bane"]],
+      bosses:[[100,"Boss Hunter"]],caches:[[100,"Cache Cracker"]],runs:[[10,"Regular"],[100,"Veteran"]],wins:[[50,"Conqueror"]],marks:[[1000,"Marked"],[10000,"Well Paid"],[100000,"Quartermaster"]]};
+    const nexts=Object.entries(TH).map(([k,arr])=>{ const v=statGet(k), n=arr.find(t=>v<t[0]); return n?[k,v,n]:null; }).filter(Boolean);
+    b.append(el("div",{class:"card"}, el("div",{class:"head"},el("span",{class:"title"},"Statistiche account"),el("span",{class:"badge"},"stat")),
+      pairEditor(stat,1,"=",{keyLabel:"Statistica",valLabel:"Valore",defVal:"0"}),
+      el("h3",{style:"margin-top:14px"},"Prossimi obiettivi Lifetime"),
+      nexts.length ? el("div",{class:"achrows"}, ...nexts.map(([k,v,[t,n]])=>el("div",{class:"achrow todo statrow"},
+        el("span",{class:"pts mono"},k),
+        el("div",{class:"txt"}, el("strong",null,n), el("div",{class:"hint"}, (k==="marks"?Math.floor(v/10)+" → "+t/10+" marchi (salvati ×10)":v.toLocaleString("it-IT")+" → "+t.toLocaleString("it-IT")))),
+        el("div",{class:"st"}, el("button",{class:"btn small",type:"button",onclick:()=>{ statSetMin(k,t); renderTabKeepScroll(); toast(n+": "+k+" portato a "+t); }},"Porta a soglia")))))
+        : el("p",{class:"hint"},"Tutte le soglie Lifetime sono raggiunte."),
+      el("p",{class:"hint",style:"margin:8px 0 0"},"Il gioco assegna gli obiettivi Lifetime al caricamento quando la statistica raggiunge la soglia (verificato con Boss Hunter).")));
+  }
   if (items!=null) b.append(el("div",{class:"card"}, el("div",{class:"head"},el("span",{class:"title"},"Oggetti (id)"),el("span",{class:"badge"},"items")),
     el("div",{class:"field"}, el("label",null,"Elenco di id separati da virgola"), txtInput(F(items)[1]||"", v=>setField(items,1,v.replace(/\s+/g,""))))));
   { const mk=idxOf("marks"), si=idxOf("stat")[0];
@@ -816,10 +846,35 @@ function armory(b){
       el("thead",null, el("tr",null, el("th",null,"Slot"), ...QUALS.map(([qn,qc],q)=>el("th",{class:"cc "+qc,title:"Drop: "+DROP[q]},qn)))), tb)),
     el("p",{class:"hint",style:"margin:10px 0 0"},"Ogni casella aggiunge o toglie l'id dalla riga items (id = 100000 + classe×1000 + slot×100 + rarità×10). Ladro e Sciamano hanno anche la mano secondaria (10 slot, 60 pezzi; 498 in tutto). Passa sopra una casella per nome e zona di drop: i nomi reali sono verificati solo per lo Sciamano. Gli id fuori da questo schema restano invariati.")));
   b.append(starsCard(c, itemSet()));
+  b.append(glowCard(c));
   b.append(gearEditor(c, itemSet()));
 }
 /* Stelle: stars|id:N,… per tutto l'account. Il massimo per un set (rarità) è l'Eroico più alto
    battuto dalla classe nelle due zone di quel set (es. Comune = Elwynn Forest · Duskwood). */
+/* Bagliore arma: glow|classe|id incantamento WoW (1894 Icy Chill, verificato; 1899 Unholy Weapon, dedotto). Nessuna riga = None. */
+const GLOWS = [["1894","Icy Chill","compare sulle armi a 5 stelle",true],["1899","Unholy Weapon","si sblocca con l'obiettivo The Insane",false],
+  ["1900","Crusader","si sblocca con l'obiettivo Champion of Naxxramas",false],["803","Fiery Weapon","si sblocca con l'obiettivo Radiant Armory",false]];
+function glowCard(c){
+  const i=idxOf("glow").find(j=>F(j)[1]===String(c)), cur=i==null?"":(F(i)[2]||"");
+  const write=v=>{ const j=idxOf("glow").find(k=>F(k)[1]===String(c));
+    if(!v){ if(j!=null) S.lines.splice(j,1); }
+    else if(j!=null) S.lines[j]="glow|"+c+"|"+v;
+    else insertLineAfter(["glow|"],["pity|","stars|","marks|","hero|"],"glow|"+c+"|"+v);
+    changed(); renderTabKeepScroll(); };
+  const known=GLOWS.some(g=>g[0]===cur);
+  const custom=el("input",{type:"number",min:"1",placeholder:"altro id",value:cur&&!known?cur:"","aria-label":"Id bagliore personalizzato",
+    onchange:e=>{ const v=String(Math.trunc(Number(e.target.value)||0)); write(v==="0"?"":v); }});
+  const opt=(v,label,hint)=>el("label",{class:"zcard"+(cur===v?" on":"")},
+    el("input",{type:"radio",name:"glow"+c,checked:cur===v,onchange:()=>write(v)}),
+    el("span",null, el("span",{class:"zn"},label), hint?el("span",{class:"hint"},hint):null));
+  return el("div",{class:"card"},
+    el("div",{class:"head"}, el("span",{class:"title"},"Bagliore arma · "+className(c)), el("span",{class:"badge"},"glow")),
+    el("div",{class:"zgrid"},
+      opt("","Nessuno","nessuna riga glow"),
+      ...GLOWS.map(([v,n,h,ver])=>opt(v,n,h+" · id "+v+(ver?" · verificato":" · dedotto")))),
+    el("div",{class:"row",style:"margin-top:10px"}, el("span",{class:"hint"},"Altro id incantamento:"), custom),
+    el("p",{class:"hint",style:"margin:10px 0 0"},"Formato glow|classe|id: gli id sono quelli degli incantamenti di WoW (Icy Chill = 1894, visto nel tuo salvataggio). Il bagliore scelto vale per la classe e si vede solo quando l'arma soddisfa il requisito in gioco (per Icy Chill, 5 stelle)."));
+}
 const STAR_MAX = 5;
 function starsMap(){ const i=idxOf("stars")[0]; const m={}; if(i!=null) for(const [k,v] of parsePairs(F(i)[1],":")) m[k]=Math.max(0,Number(v)||0); return m; }
 function writeStars(m){
@@ -862,7 +917,12 @@ function starsCard(c, owned){
 }
 /* ---- scheda Perk ---- */
 const KNOWN_PERKS = ["banish","companion","instinct_gold","keen","leash","opening","paws","rerolls","skip","veteran"];
-const KNOWN_PETS = ["rabbit","squirrel"]; // id visti nei salvataggi reali
+const KNOWN_PETS = ["doomguard","rabbit","squirrel"];
+const PET_SOURCES = [["Squirrel","di base"],["Snowshoe Rabbit","Duskwood"],["Crimson Macaw","Warsong Gulch"],["Great Horned Owl","Arathi Basin"],["Tree Frog","Feralas"],["Black Kingsnake","Gurubashi Arena"],
+  ["Sprite Darter","Alterac Valley"],["Black Whelpling","Blackrock Mountain"],["Zergling","Gates of Ahn'Qiraj"],["Westfall Chicken","Veteran"],["Undercity Cockroach","Scourge of Azeroth"],["Panda Cub","Deathless Hour"],
+  ["Sapphiron","no u"],["Swift Zulian Tiger","Suck It, Hakkar!"],["Mini Chromatic Drakonid","Bad Dragon!"],["Mini Eye of C'Thun","Eye Caramba!"],["Mini Stitches","Stitches Get Stitches"],["Mini Doomguard","Not Today, Satan"],
+  ["Baby Devilsaur","Clever Girl"],["Mini Ogre","Bonk the Bonker"],["Tiny Gordok","Stop Hitting Yourself"],["Azure Whelpling","Blue Screen of Death"],["Ancient Protector","Rest in Photosynthesis"],["Mini Herod","Hakkar Smoothie"],
+  ["Mini Nefarian","Totem'ly Balanced"],["Mr. Bigglesworth","Together, To the End"]]; // id visti nei salvataggi reali
 function appendLine(l){ let at=S.lines.length; if(at&&S.lines[at-1]==="") at--; S.lines.splice(at,0,l); changed(); }
 /* Obiettivi: ach|id,id,… (ordinati) e achat|id=timestamp,…  I punti ricompensa NON sono salvati:
    il gioco li calcola come (punti degli obiettivi) − (perk + tabard + razze comprati). */
@@ -876,23 +936,204 @@ function writeAch(list){
   if(ai!=null){ const keep=new Set(list); S.lines[ai]="achat|"+parsePairs(F(ai)[1],"=").filter(p=>keep.has(p[0])).map(p=>p[0]+"="+p[1]).join(","); }
   changed();
 }
+/* ================== Catalogo obiettivi ==================
+   Il gioco (dall'aggiornamento di novembre 2026) ricalcola al caricamento gli obiettivi che dipendono dai dati del
+   salvataggio e toglie quelli non giustificati. Le "leve" qui sotto modificano i dati da cui il gioco li calcola.
+   Verificato su salvataggi reali: zone (beat), statistiche (stat), eroico (hbeat), stelle (stars), talenti, pezzi, co-op.
+   I punti in Rewards il gioco li ricalcola a fine partita, non all'import. */
+const capN = s => s.charAt(0).toUpperCase()+s.slice(1);
+const ALL_CLASSES = ["1","2","3","4","5","7","8","9","11"];
+const ARMOR_SLOTS = [0,1,2,3,4,5,6,7];
+const zkeys = () => ZONES.map(z=>z[1]); // ZONES è definita più avanti: lettura solo a runtime
+const statGet = k => { const i=idxOf("stat")[0]; if(i==null) return 0; const p=parsePairs(F(i)[1],"=").find(x=>x[0]===k); return p?Number(p[1])||0:0; };
+function statSetMin(k, v){
+  let i=idxOf("stat")[0]; if(i==null){ insertLineAfter(["stat|"],["achat|","ach|","seen|"],"stat|"); i=idxOf("stat")[0]; }
+  const arr=parsePairs(F(i)[1],"="), p=arr.find(x=>x[0]===k);
+  if(p){ if((Number(p[1])||0) < v) p[1]=String(v); } else arr.push([k,String(v)]);
+  setField(i,1,joinPairs(arr,"="));
+}
+const coopSet = () => { const i=idxOf("coopbeat")[0]; return new Set(i==null?[]:(F(i)[1]||"").split(",").filter(Boolean)); };
+function coopAdd(keys){
+  const st=coopSet(); keys.forEach(k=>st.add(k));
+  const v="coopbeat|"+[...st].sort((a,b)=>zoneIdx(a)-zoneIdx(b)).join(","), i=idxOf("coopbeat")[0];
+  if(i!=null) S.lines[i]=v; else insertLineAfter(["coopbeat|"],["beat|","stat|"],v);
+  changed();
+}
+const anyBeat = z => ALL_CLASSES.some(c=>beatSet(c).has(z));
+const classesBeat = z => ALL_CLASSES.filter(c=>beatSet(c).has(z)).length;
+const maxHeroic = () => { let m=0; for(const c of ALL_CLASSES) for(const v of Object.values(hbeatMap(c))) m=Math.max(m,v); return m; };
+const heroicZone = (z,n) => ALL_CLASSES.some(c=>(hbeatMap(c)[z]||0)>=n);
+const ownedSchemaItems = () => { const o=itemSet(); return allItemIds().filter(x=>o.has(x)).length; };
+const setStars = (c,q,minStar) => { const st=starsMap(); return ARMOR_SLOTS.filter(s=>(st[itemId(c,s,q)]||0)>=minStar).length; };
+const maxStar = () => Math.max(0,...Object.values(starsMap()));
+const fullSet = (c,q,n) => setStars(c,q,n)>=8;
+const classesWith = fn => ALL_CLASSES.filter(fn).length;
+const talentFull = c => talentLine(c)!=null && spentOf(c)>=51;
+
+/* --- leve: ogni funzione modifica i dati da cui il gioco ricava l'obiettivo --- */
+function ensureZones(c, z){
+  if(!zoneInit(c)) initZones(c, z);
+  const st=beatSet(c); for(let i=0;i<=zoneIdx(z);i++) st.add(zkeys()[i]); writeBeat(c, st);
+}
+function ensureHeroic(c, z, n){
+  ensureZones(c, z);
+  const m=hbeatMap(c); if((m[z]||0)<n){ m[z]=Math.min(HEROIC_MAX,n); writeHbeat(c,m); }
+}
+function giveStars(c, q, slots, n){
+  const ids=slots.map(s=>itemId(c,s,q));
+  writeItems(l=>l.concat(ids.filter(x=>!l.includes(x))));
+  tierZones(q).forEach(z=>ensureHeroic(c, z, n));    // le stelle del set si aprono con l'Eroico nelle sue zone: entrambe (Armory of Legends conta solo con aq e naxx)
+  const m=starsMap(); for(const id of ids) m[id]=Math.max(m[id]||0,n); writeStars(m);
+}
+function giveTalents(c){
+  if(!CATCLS[c]) return;
+  const i=ensureTalentLine(c,"1000000"); if((Number(F(i)[2])||0)<1000000) setField(i,2,"1000000");
+  autoFill(c,51);
+}
+
+/* [categoria, nome, punti, descrizione, id noto o null, ricompensa, check()→[fatto, avanzamento], leva(c) o null, tutte le classi?, verificato?] */
+function achCatalog(){
+  const L=[];
+  const add=(cat,name,pts,desc,id,rew,check,lever,all,ver)=>L.push({cat,name,pts,desc,id,rew,check,lever,all:!!all,ver:ver!==false});
+  const ZPTS={elwynn:10,duskwood:10,wsg:10,ungoro:10,ab:10,feralas:15,arena:15,sm:15,av:15,brm:20,aq:25,naxx:30};
+  const ZBOSS={elwynn:"Edwin VanCleef",duskwood:"Morbent Fel",wsg:"Lord Kazzak",ungoro:"King Mosh",ab:"Lord Aliden Perenolde",feralas:"King Gordok",arena:"Hakkar",sm:"High Inquisitor Whitemane",av:"Azuregos",brm:"Nefarian",aq:"C'Thun",naxx:"Kel'Thuzad"};
+  const ZREW={elwynn:"Perk Banish",duskwood:"Perk Skip, Snowshoe Rabbit",wsg:"Perk Veteran's Lessons, 2 tabard, Crimson Macaw",ab:"2 tabard, Great Horned Owl",feralas:"Tree Frog",arena:"Black Kingsnake",av:"2 tabard, Sprite Darter",brm:"Black Whelpling",aq:"Zergling"};
+  // Zone
+  for(const [n,z] of ZONES) add("Zone",n,ZPTS[z],"Batti "+ZBOSS[z]+" in "+n+" con una classe qualsiasi.","zone:"+z,ZREW[z]||"",
+    ()=>[anyBeat(z),anyBeat(z)?"":"0/1"], c=>ensureZones(c,z), false, true);
+  for(const [n,z] of ZONES) add("Zone","Champion of "+n,25,"Batti "+ZBOSS[z]+" in "+n+" con tutte e 9 le classi.","zone9:"+z,"",
+    ()=>[classesBeat(z)===9,classesBeat(z)+"/9"], ()=>ALL_CLASSES.forEach(c=>ensureZones(c,z)), true, true);
+  // Classi (la leva agisce sulla classe dell'obiettivo, non su quella scelta)
+  for(const c of ALL_CLASSES) add("Classi",capN(ACH_CLASS[c])+" Victorious",10,"Vinci una partita con questa classe (il gioco lo assegna se la classe ha almeno una zona completata).","class:"+ACH_CLASS[c],"",
+    ()=>[beatSet(c).size>0,beatSet(c).size>0?"":"nessuna zona"], ()=>ensureZones(c,"elwynn"), true, true);
+  for(const c of ALL_CLASSES) add("Classi",capN(ACH_CLASS[c])+" of the Scarab Wall",25,"Batti C'Thun in Gates of Ahn'Qiraj con questa classe.","classlast:"+ACH_CLASS[c],"",
+    ()=>[beatSet(c).has("aq"),beatSet(c).has("aq")?"":"AQ non battuta"], ()=>ensureZones(c,"aq"), true, false);
+  add("Classi","Fully Talented",25,"Tutti i 51 punti talento con una classe.","talents:1","",()=>[ALL_CLASSES.some(talentFull),""], c=>giveTalents(c));
+  add("Classi","Master of All",50,"Tutti i 51 punti talento con ogni classe.","talents:9","",()=>{const n=classesWith(talentFull); return [n===9,n+"/9"];}, ()=>ALL_CLASSES.forEach(giveTalents), true);
+  // Collezione
+  const pc=[["Collector",25,10,"pieces:25","Perk Keen Eye"],["Hoarder",100,10,"pieces:100",""],["Curator",250,25,"pieces:250",""],["The Whole Armory",498,50,"pieces:all",""]];
+  for(const [n,k,p,id,r] of pc) add("Collezione",n,p,"Raccogli "+(k===498?"tutti i pezzi di ogni classe":k+" pezzi")+".",id,r,()=>{const o=ownedSchemaItems(); return [o>=k,o+"/"+k];},
+    ()=>writeItems(l=>l.concat(allItemIds().filter(x=>!l.includes(x)))));
+  add("Collezione","Legendary",25,"Tutti i pezzi leggendari di una classe.","legendaryset","",()=>[ALL_CLASSES.some(c=>{const o=itemSet(); for(let s=0;s<slotCount(c);s++) if(!o.has(itemId(c,s,5))) return false; return true;}),""],
+    c=>{ const ids=[]; for(let s=0;s<slotCount(c);s++) ids.push(itemId(c,s,5)); writeItems(l=>l.concat(ids.filter(x=>!l.includes(x)))); });
+  add("Collezione","Jeweler's Eye",10,"Vedi metà degli anelli, monili e amuleti del codex.",null,"",()=>[false,""],null);
+  add("Collezione","Every Bauble",25,"Vedi tutti gli anelli, monili e amuleti del codex.",null,"",()=>[false,""],null);
+  add("Collezione","Polished",10,"Un pezzo a 1 stella.","stars:1","",()=>[maxStar()>=1,""], c=>giveStars(c,0,[0],1));
+  add("Collezione","Honed",10,"Un pezzo a 3 stelle.","stars:3","",()=>[maxStar()>=3,""], c=>giveStars(c,0,[0],3));
+  add("Collezione","Matched",10,"Bonus set: quattro pezzi d'armatura di un set ad almeno 1 stella.","setbonus","",()=>[ALL_CLASSES.some(c=>[0,1,2,3,4,5].some(q=>setStars(c,q,1)>=4)),""], c=>giveStars(c,0,[0,1,2,3],1));
+  add("Collezione","Shared Wisdom",25,"Gli otto pezzi d'armatura di un set ad almeno 1 stella con ogni classe.","sharedset","",()=>{const n=classesWith(c=>fullSet(c,0,1)); return [n===9,n+"/9"];}, ()=>ALL_CLASSES.forEach(c=>giveStars(c,0,ARMOR_SLOTS,1)), true);
+  add("Collezione","Suited Up",10,"Bonus a 8 pezzi: gli otto pezzi d'armatura di un set ad almeno 3 stelle.","set8","",()=>[ALL_CLASSES.some(c=>[0,1,2,3,4,5].some(q=>fullSet(c,q,3))),""], c=>giveStars(c,0,ARMOR_SLOTS,3));
+  add("Collezione","Wardrobe",25,"Bonus a 8 pezzi di tutti e sei i set con una classe.","wardrobe","",()=>{let b=0; for(const c of ALL_CLASSES) b=Math.max(b,[0,1,2,3,4,5].filter(q=>fullSet(c,q,3)).length); return [b===6,b+"/6"];},
+    c=>[0,1,2,3,4,5].forEach(q=>giveStars(c,q,ARMOR_SLOTS,3)));
+  // Verificato: il gioco conta una classe solo se ha gli 8 pezzi d'armatura di TUTTI e sei i set a 3 stelle
+  // (con il solo leggendario a 3 stelle segnava 1/9, anche con l'Eroico in Ahn'Qiraj e Naxxramas)
+  const legendOk = c => [0,1,2,3,4,5].every(q=>fullSet(c,q,3));
+  add("Collezione","Armory of Legends",50,"Bonus a 8 pezzi del set leggendario con ogni classe: il gioco conta la classe solo se ha tutti e sei i set a 3 stelle.",null,"",()=>{const n=classesWith(legendOk); return [n===9,n+"/9"];},
+    ()=>ALL_CLASSES.forEach(c=>[0,1,2,3,4,5].forEach(q=>giveStars(c,q,ARMOR_SLOTS,3))), true);
+  // Imprese (solo in gioco)
+  const feats=[["Humble Beginnings",25,"Batti Naxxramas col bonus a 8 pezzi del set comune."],["Overtime",10,"Uccidi 3 boss in endless in una partita."],["Never Ending",25,"Uccidi 6 boss in endless in una partita."],
+    ["Hazard Pay",25,"Guadagna 100 marchi in una partita."],["Danger Money",50,"Guadagna 50 marchi da un solo boss."],["Slaughterhouse",10,"Uccidi 2.500 nemici in una partita.","feat:kills2500","Perk Opening Hand"],
+    ["Carnage",25,"Uccidi 6.000 nemici in una partita.","feat:kills6000"],["Lair Breaker",25,"Uccidi quattro guardiani prima di 8:00.","feat:lairs"],["Overtime (25:00)",10,"Sopravvivi fino a 25:00 in endless."],
+    ["Unending",25,"Sopravvivi fino a 30:00 in endless."],["Deathless Hour",50,"Sopravvivi fino a 40:00 in endless.",null,"Panda Cub"],["Bare Knuckles",25,"Vinci una partita senza equipaggiamento."],
+    ["Thrifty",25,"Vinci senza comprare cache."],["Against the Odds",50,"Vinci su Eroico III o superiore."],["no u",25,"Sapphiron ucciso da Frostbolt.",null,"Glacial Cloak, Sapphiron"],
+    ["Spin to Win",25,"Herod ucciso da Whirlwind.",null,"Scarlet Crusade Tabard, Dashing Scarlet Cloak"],["Suck It, Hakkar!",25,"Hakkar ucciso con Drain Life.",null,"Zul'Gurub Mask, Swift Zulian Tiger"],
+    ["Bad Dragon!",25,"Nefarian ucciso da un evocato.",null,"Onyxia Scale Cloak, Mini Chromatic Drakonid"],["Eye Caramba!",50,"C'Thun senza subire danni.",null,"Gnomish Mind Control Cap, Mini Eye of C'Thun"],
+    ["You're Fired",10,"VanCleef ucciso con un incantesimo di fuoco.","feat:vancleef","Defias Bandana"],["Stitches Get Stitches",10,"Stitches ucciso con un sanguinamento.",null,"Mini Stitches"],
+    ["Not Today, Satan",25,"Kazzak ucciso con danni sacri.","feat:kazzak","Mini Doomguard"],["Clever Girl",25,"King Mosh ucciso da un evocato.",null,"Baby Devilsaur"],
+    ["Bonk the Bonker",10,"Kovork ucciso in mischia.",null,"Mini Ogre"],["Stop Hitting Yourself",25,"King Gordok ucciso da danni riflessi.",null,"Tiny Gordok"],
+    ["Blue Screen of Death",25,"Azuregos ucciso con un incantesimo arcano.",null,"Gnomish Goggles, Azure Whelpling"]];
+  for(const [n,p,d,id,r] of feats) add("Imprese",n,p,d,id||null,r||"",()=>[false,""],null);
+  // Lifetime (statistiche)
+  const life=[["Marked",10,"Guadagna 100 marchi.","marks",1000,"count:marks100"],["Well Paid",25,"Guadagna 1.000 marchi.","marks",10000,"count:marks1k"],["Quartermaster",50,"Guadagna 10.000 marchi.","marks",100000,"count:marks10k"],
+    ["Exterminator",10,"Uccidi 10.000 nemici.","kills",10000,"count:kills10k"],["Scourge of Azeroth",25,"Uccidi 100.000 nemici.","kills",100000,"count:kills100k","Undercity Cockroach"],["A Million Dead",50,"Uccidi 1.000.000 di nemici.","kills",1000000,"count:kills1m"],
+    ["Pocket Change",10,"Raccogli 5.000 oro.","gold",5000,"count:gold5k","Perk Companion"],["Treasure Hunter",25,"Raccogli 50.000 oro.","gold",50000,"count:gold50k","Perk Second Companion"],
+    ["Lair Raider",10,"Uccidi 100 guardiani.","guardians",100,"count:guardians100"],["Warden's Bane",25,"Uccidi 500 guardiani.","guardians",500,"count:guardians500"],["Boss Hunter",10,"Uccidi 100 boss.","bosses",100,"count:bosses100"],
+    ["Cache Cracker",10,"Compra 100 cache.","caches",100,"count:caches100"],["Regular",10,"Gioca 10 partite.","runs",10,"count:runs10","Perk Second Thoughts"],["Veteran",10,"Gioca 100 partite.","runs",100,"count:runs100","Westfall Chicken"],
+    ["Conqueror",25,"Vinci 50 partite.","wins",50,"count:wins50"]];
+  for(const [n,p,d,k,v,id,r] of life) add("Statistiche",n,p,d,id,r||"",()=>{const x=statGet(k); return [x>=v,(k==="marks"?Math.floor(x/10)+"/"+v/10:x.toLocaleString("it-IT")+"/"+v.toLocaleString("it-IT"))];},
+    ()=>statSetMin(k,v));
+  // Co-op
+  add("Co-op","Better Together",10,"Completa la prima zona con almeno un altro giocatore.","coop:together","Admiral's Hat",()=>[coopSet().size>0,""],()=>coopAdd(["elwynn"]));
+  add("Co-op","For the Team",10,"Completa Warsong Gulch e Arathi Basin in co-op.","coop:team","Perk United Front",()=>{const s=coopSet(); const n=["wsg","ab"].filter(z=>s.has(z)).length; return [n===2,n+"/2"];},()=>coopAdd(["wsg","ab"]));
+  add("Co-op","Dragonslayers",25,"Batti Azuregos e Nefarian in co-op.","coop:dragonslayers","Cloak of the Brood Lord",()=>{const s=coopSet(); const n=["av","brm"].filter(z=>s.has(z)).length; return [n===2,n+"/2"];},()=>coopAdd(["av","brm"]));
+  add("Co-op","Together, To the End",50,"Completa tutte e 12 le zone in co-op.","coop:end","Mr. Bigglesworth",()=>{const n=coopSet().size; return [n>=12,n+"/12"];},()=>coopAdd(zkeys()));
+  const coop=[["Five of a Kind",25,"Una zona in co-op con 5 giocatori della stessa classe.","Bloodsail Admiral's Hat"],["Rest in Photosynthesis",50,"Kel'Thuzad su Eroico III con 5 Druidi (Tranquility).","Ancient Protector"],
+    ["The Insane",50,"Sopravvivi 40 minuti in Naxxramas su Eroico V con altri due giocatori.","bagliore Unholy Weapon"],["Matching Outfits",25,"Vinci in gruppo da 3+ con lo stesso set a 8 pezzi.",""],["Raid Night",25,"Batti Eroico III in gruppo da cinque.",""],
+    ["Against All Odds",50,"Una zona su Eroico III in co-op.","Contest Winner's Tabard"],["The Brotherhood Falls",25,"VanCleef in co-op con 5 classi diverse.","Cape of the Brotherhood"],
+    ["Things That Go Bump in the Night",25,"Duskwood in co-op senza morti.","Embrace of the Lycan"],["Jurassic Pack",25,"Un'Goro in co-op con 5 Cacciatori.","White Devilsaur"],
+    ["Hakkar Smoothie",50,"Hakkar con 5 Guerrieri (Bladestorm).","Mini Herod"],["Holy Frame Drops",50,"Whitemane con 5 Paladini (Consecration).","Whitemane's Chapeau"],
+    ["Totem'ly Balanced",50,"Nefarian con 5 Sciamani (Magma Totem).","Mini Nefarian"],["The Old Gods Have No Friends",50,"C'Thun su Eroico III in co-op.","Cloak of the Devoured"]];
+  for(const [n,p,d,r] of coop) add("Co-op",n,p,d,null,r,()=>[false,""],null);
+  // Eroico
+  add("Eroico","Heroic Debut",10,"Batti Eroico I in una zona qualsiasi.","heroic:1","",()=>[maxHeroic()>=1,""],c=>ensureHeroic(c,"elwynn",1));
+  add("Eroico","Heroic Resolve",25,"Batti Eroico III in una zona qualsiasi.","heroic:3","",()=>[maxHeroic()>=3,""],c=>ensureHeroic(c,"elwynn",3));
+  add("Eroico","Heroic Across Azeroth",50,"Batti Eroico III in ogni zona, con classi qualsiasi.","heroic:all3","",()=>{const n=zkeys().filter(z=>heroicZone(z,3)).length; return [n===12,n+"/12"];},c=>zkeys().forEach(z=>ensureHeroic(c,z,3)));
+  add("Eroico","Champion of Naxxramas",50,"Batti Eroico V in Naxxramas.","heroic:naxx5","bagliore Crusader",()=>[heroicZone("naxx",5),""],c=>ensureHeroic(c,"naxx",5));
+  add("Eroico","Beyond the Vault",10,"Un pezzo a 4 stelle.","stars:4","",()=>[maxStar()>=4,""],c=>giveStars(c,0,[0],4));
+  add("Eroico","Five Stars",25,"Un pezzo a 5 stelle.","stars:5","",()=>[maxStar()>=5,""],c=>giveStars(c,0,[0],5));
+  add("Eroico","Empowered",25,"Gli otto pezzi d'armatura di un set a 5 stelle.","empowered","",()=>[ALL_CLASSES.some(c=>[0,1,2,3,4,5].some(q=>fullSet(c,q,5))),""],c=>giveStars(c,0,ARMOR_SLOTS,5));
+  add("Eroico","Radiant Armory",50,"Set a 8 pezzi a 5 stelle con ogni classe.","radiantarmory","bagliore Fiery Weapon",()=>{const n=classesWith(c=>[0,1,2,3,4,5].some(q=>fullSet(c,q,5))); return [n===9,n+"/9"];},()=>ALL_CLASSES.forEach(c=>giveStars(c,0,ARMOR_SLOTS,5)),true);
+  add("Eroico","Unpolished",25,"Batti Eroico II o superiore senza pezzi sopra 0 stelle.",null,"",()=>[false,""],null);
+  return L;
+}
+function achStatus(a, have){
+  const [done,prog]=a.check();
+  if(a.id && have.has(a.id)) return {k:"ok",t:"Ottenuto"};
+  if(done && a.lever) return {k:"ready",t:"Pronto: il gioco lo assegna al caricamento"};
+  if(done) return {k:"ok",t:"Completato"};
+  return {k:"todo",t:prog||"Da fare"};
+}
 function achCard(b){
-  const list=achList(), have=new Set(list);
-  const cand=[...Object.values(ACH_CLASS).map(c=>"class:"+c), ...ZONES.map(z=>"zone:"+z[1])].filter(a=>!have.has(a));
-  const groups={}; for(const a of list){ const g=a.includes(":")?a.split(":")[0]:"altro"; (groups[g]=groups[g]||[]).push(a); }
-  const inp=el("input",{type:"text",placeholder:"es. zone:naxx",spellcheck:"false"});
+  const list=achList(), have=new Set(list), cat=achCatalog();
+  const leverCls=S.achCls && ALL_CLASSES.includes(S.achCls) ? S.achCls : (()=>{ const p=idxOf("pick")[0]; const c=p!=null?F(p)[1]:"8"; return ALL_CLASSES.includes(c)?c:"8"; })();
+  S.achCls=leverCls;
+  const stats=cat.map(a=>({a,s:achStatus(a,have)}));
+  const todoLever=stats.filter(x=>x.a.lever && x.s.k==="todo");
+  const ptsLever=todoLever.reduce((s,x)=>s+x.a.pts,0), ptsAll=cat.reduce((s,x)=>s+x.pts,0);
+  const sel=el("select",{"aria-label":"Classe per le leve",onchange:e=>{ S.achCls=e.target.value; renderTabKeepScroll(); }}, ...ALL_CLASSES.map(c=>el("option",{value:c},className(c))));
+  sel.value=leverCls;
+  const incAll=el("input",{type:"checkbox",id:"achAll"});
+  const apply=(a)=>{ if(a.all && !confirm("\""+a.name+"\" modifica i dati di altre classi oltre a quella scelta, anche di quelle mai giocate (zone inizializzate da zero). Continuare?")) return;
+    a.lever(leverCls); renderTabKeepScroll(); toast(a.name+": dati aggiornati, importa e controlla in gioco"); };
+  const applyAll=()=>{ const go=todoLever.filter(x=>incAll.checked || !x.a.all);
+    if(!go.length) return toast("Niente da applicare");
+    if(!confirm("Applicare "+go.length+" obiettivi ("+go.reduce((s,x)=>s+x.a.pts,0)+" punti) usando "+className(leverCls)+(incAll.checked?", comprese le modifiche alle altre classi":"")+"? Tieni un backup.")) return;
+    for(const x of go) x.a.lever(leverCls); renderTab(); toast(go.length+" obiettivi preparati: importa e gioca una partita per aggiornare i punti Rewards"); };
+  const cats=[...new Set(cat.map(a=>a.cat))];
+  const body=el("div",{class:"achcat"});
+  for(const c of cats){
+    const rows=stats.filter(x=>x.a.cat===c), got=rows.filter(x=>x.s.k!=="todo").length, pts=rows.reduce((s,x)=>s+x.a.pts,0);
+    const hasLever=rows.some(x=>x.a.lever);
+    const det=el("details",{open:hasLever && rows.some(x=>x.a.lever&&x.s.k==="todo")},
+      el("summary",null, el("strong",null,c), el("span",{class:"hint"}," · "+got+"/"+rows.length+" · "+pts+" punti"+(hasLever?"":" · solo in gioco"))));
+    const tbl=el("div",{class:"achrows"});
+    for(const {a,s} of rows) tbl.append(el("div",{class:"achrow "+s.k},
+      el("span",{class:"pts"},String(a.pts)),
+      el("div",{class:"txt"}, el("div",null, el("strong",null,a.name), a.id?el("span",{class:"hint mono"}," "+a.id):null),
+        el("div",{class:"hint"}, a.desc+(a.rew?" · Ricompensa: "+a.rew:""))),
+      el("div",{class:"st"}, el("span",{class:"tag "+s.k}, s.t),
+        a.lever && s.k==="todo" ? el("button",{class:"btn small",type:"button",title:a.ver?"Leva verificata in gioco":"Leva dedotta: da verificare in gioco",onclick:()=>apply(a)},a.ver?"Applica":"Applica *") :
+        (!a.lever && s.k==="todo" ? el("span",{class:"hint"},"solo in gioco") : null))));
+    det.append(tbl); body.append(det);
+  }
   b.append(el("div",{class:"card"},
     el("div",{class:"head"}, el("span",{class:"title"},"Obiettivi e punti ricompensa"), el("span",{class:"badge"},"ach · "+list.length)),
     el("div",{class:"status info",style:"display:block;margin:0 0 10px"},
-      "Il salvataggio non contiene un campo con i punti: il gioco calcola i punti da spendere come punti degli obiettivi meno quello che hai comprato (perk, tabard, razze), e se il risultato è negativo mostra 0. Per avere più punti puoi aggiungere obiettivi qui, oppure togliere acquisti nelle card sotto."),
-    el("div",{class:"achs"}, ...Object.keys(groups).sort().map(g=>el("div",{class:"achg"}, el("span",{class:"hint mono"},g),
-      el("div",{class:"row"}, ...groups[g].map(a=>el("span",{class:"chip",style:"cursor:default;padding:2px 4px 2px 10px"}, a.includes(":")?a.split(":").slice(1).join(":"):a,
-        el("button",{class:"btn x",type:"button",title:"Rimuovi "+a,onclick:()=>{ writeAch(list.filter(x=>x!==a)); renderTabKeepScroll(); }},"✕"))))))),
-    el("div",{class:"row",style:"margin-top:12px"}, inp,
-      el("button",{class:"btn small",type:"button",onclick:()=>{ const v=clean(inp.value.trim(),","); if(!v) return toast("Scrivi un id"); if(have.has(v)) return toast("Già presente"); writeAch(list.concat(v)); renderTabKeepScroll(); }},"Aggiungi"),
-      cand.length ? el("button",{class:"btn primary small",type:"button",title:cand.join(", "),onclick:()=>{ writeAch(list.concat(cand)); renderTabKeepScroll(); toast(cand.length+" obiettivi aggiunti"); }},"Aggiungi classi e zone mancanti ("+cand.length+")") : null),
-    el("p",{class:"hint",style:"margin:10px 0 0"},"Verificato: il gioco tiene gli obiettivi aggiunti qui e li conta nei punti (12 obiettivi di classi e zone = +185 punti). Nel gioco ci sono 124 obiettivi per 2950 punti; i valori vanno da 10 a 25 circa. Per id diversi da classi e zone (heroic:2, count:…) prova un obiettivo alla volta e controlla in Rewards se i punti salgono.")));
+      "Il gioco calcola i punti come punti degli obiettivi meno gli acquisti (perk, tabard, razze) e ricontrolla gli obiettivi al caricamento: quelli che dipendono da zone, statistiche, eroico, stelle, talenti e pezzi li assegna da solo se i dati li giustificano. \"Applica\" modifica quei dati; poi importa e controlla in Achievements. * = leva dedotta, non ancora verificata."),
+    el("div",{class:"status warn",style:"display:block;margin:0 0 10px"},
+      el("strong",null,"Punti Rewards: "),"dopo l'import Achievements mostra subito i nuovi obiettivi, ma i punti in Rewards restano quelli vecchi finché non finisci una partita. Quindi: importa, gioca una partita (anche breve o persa), poi spendi i punti."),
+    el("div",{class:"unlock"},
+      el("div",null, el("strong",null, todoLever.length+" obiettivi sbloccabili con l'app · "+ptsLever+" punti"),
+        el("div",{class:"hint"},"Su "+cat.length+" obiettivi per "+ptsAll+" punti. Le leve usano la classe scelta qui accanto (zone, eroico, stelle)."),
+        el("label",{for:"achAll",class:"hint",style:"display:flex;gap:6px;align-items:center;margin-top:4px"}, incAll, "Includi gli obiettivi che modificano altre classi, anche mai giocate (Champion, Victorious, Scarab Wall, Master of All, Shared Wisdom, Armory of Legends…)")),
+      el("div",{class:"row"}, el("span",{class:"hint"},"Classe:"), sel, el("button",{class:"btn primary small",type:"button",onclick:applyAll},"Applica tutti"))),
+    body,
+    el("details",{class:"raw",style:"margin-top:10px"}, el("summary",null,"Riga ach grezza ("+list.length+")"),
+      el("div",{class:"row",style:"margin-top:8px;gap:6px"}, ...list.map(a=>el("span",{class:"chip",style:"cursor:default;padding:2px 4px 2px 10px"}, a,
+        el("button",{class:"btn x",type:"button",title:"Rimuovi "+a,onclick:()=>{ writeAch(list.filter(x=>x!==a)); renderTabKeepScroll(); }},"✕")))),
+      el("p",{class:"hint"},"Togliere un obiettivo che i dati giustificano non serve: il gioco lo rimette al caricamento."))));
 }
+
 function perks(b){
   achCard(b);
   const pi=idxOf("perk")[0];
@@ -932,13 +1173,15 @@ function perks(b){
     const write=arr=>{ const v="pets|"+arr.join(","); if(pe==null) insertLineAfter(["tabard|","perk|"],["resets|"],v); else S.lines[pe]=v; changed(); renderTab(); };
     const inp=el("input",{type:"text",placeholder:"id compagno",spellcheck:"false",list:"petIds"});
     b.append(el("div",{class:"card"}, el("datalist",{id:"petIds"}, ...KNOWN_PETS.map(p=>el("option",{value:p}))),
-      el("div",{class:"head"}, el("span",{class:"title"},"Compagni"), el("span",{class:"badge"},"pets · "+list.length)),
+      el("div",{class:"head"}, el("span",{class:"title"},"Compagni scelti"), el("span",{class:"badge"},"pets · "+list.length)),
       list.length ? el("div",{class:"row"}, ...list.map(p=>el("span",{class:"chip",style:"cursor:default;padding:3px 4px 3px 10px"}, p,
           el("button",{class:"btn x",type:"button",title:"Rimuovi",onclick:()=>write(list.filter(x=>x!==p))},"✕"))))
         : el("p",{class:"hint",style:"margin:0"},"Nessun compagno in questo salvataggio."),
       el("div",{class:"row",style:"margin-top:10px"}, inp, el("button",{class:"btn small",type:"button",onclick:()=>{
         const v=clean(inp.value.trim(),",").toLowerCase(); if(!v) return toast("Scrivi un id"); if(list.includes(v)) return toast("Già presente"); write(list.concat(v)); }},"Aggiungi")),
-      el("p",{class:"hint",style:"margin:10px 0 0"},"Formato pets|id,id,… . Id visti finora: "+KNOWN_PETS.join(", ")+".")));
+      el("p",{class:"hint",style:"margin:10px 0 0"},"pets contiene i compagni scelti negli slot (il primo è quello attivo; il secondo slot si apre col perk di Treasure Hunter), non quelli posseduti: i compagni posseduti li calcola il gioco dagli obiettivi. Mettere qui un compagno non ancora ottenuto probabilmente non funziona. Id noti: "+KNOWN_PETS.join(", ")+"."),
+      el("details",{class:"raw",style:"margin-top:8px"}, el("summary",null,"Compagni del gioco e obiettivo che li sblocca"),
+        el("div",{class:"hint",style:"margin-top:6px;line-height:1.7"}, PET_SOURCES.map(p=>p[0]+" ("+p[1]+")").join(" · ")))));
   }
   const rs=idxOf("resets")[0];
   b.append(el("div",{class:"card"}, el("div",{class:"head"},el("span",{class:"title"},"Reset dei perk"),el("span",{class:"badge"},"resets")),
@@ -970,7 +1213,8 @@ function initZones(c, targetKey){
   if(cleared.length && zLine("beat",c)<0) insertLineAfter(["beat|"],["stat|","achat|","ach|","seen|"],"beat|"+c+"|"+cleared.join(","));
   changed();
 }
-const heroUnlocked = c => { const i=idxOf("hero").find(i=>F(i)[1]===String(c)); return i==null ? null : F(i)[3]==="1"; };
+// classe già giocata: il gioco crea equip|classe| alla prima partita (il 3° campo di hero è il sesso, non un flag)
+const heroUnlocked = c => S.lines.some(l=>l.startsWith("equip|"+c+"|"));
 function writeBeat(c,set){
   const vals=[...set].sort((a,b)=>zoneIdx(a)-zoneIdx(b)||a.localeCompare(b));
   const i=zLine("beat",c);
@@ -1012,7 +1256,7 @@ function zones(b){
     b.append(el("div",{class:"unlock"},
       el("div",null, el("strong",null,"Inizializza tutte le classi senza zone (sperimentale)"),
         el("div",{class:"hint"}, missing.length+" classi senza progressi zone: "+missing.map(className).join(", ")+"."),
-        el("label",{for:"zOnlyUnl",class:"hint",style:"display:flex;gap:6px;align-items:center;margin-top:4px"}, onlyUnlocked, "Solo le classi già giocate (flag hero a 1)")),
+        el("label",{for:"zOnlyUnl",class:"hint",style:"display:flex;gap:6px;align-items:center;margin-top:4px"}, onlyUnlocked, "Solo le classi già giocate (con la riga equip)")),
       el("div",{class:"row"}, el("span",{class:"hint"},"fino a"), gsel,
         el("button",{class:"btn primary small",type:"button",onclick:()=>{
           const list=missing.filter(c=>!onlyUnlocked.checked || heroUnlocked(c)!==false);
@@ -1038,7 +1282,7 @@ function zones(b){
     const hu=heroUnlocked(c), tsel=el("select",{"aria-label":"Sblocca fino a"}, ...ZONES.map(([n,k])=>el("option",{value:k},n)));
     tsel.value="elwynn";
     card.append(el("div",{class:"status info",style:"display:block"},"Questo salvataggio non ha progressi zone per "+className(c)+" (nessuna riga open, beat o unlock). Il modo sicuro è giocare una partita con questa classe e riesportare."),
-      hu===false ? el("div",{class:"status bad",style:"display:block;margin-top:8px"},"Attenzione: la riga hero di "+className(c)+" ha il flag a 0: la classe non risulta ancora giocata. Creare zone per una classe bloccata è il caso più rischioso.") : null,
+      hu===false ? el("div",{class:"status bad",style:"display:block;margin-top:8px"},"Attenzione: "+className(c)+" non risulta ancora giocata (nessuna riga equip). Creare zone per una classe mai giocata è il caso più rischioso.") : null,
       el("div",{class:"unlock",style:"margin-top:10px"},
         el("div",null, el("strong",null,"Inizializza le zone (sperimentale)"),
           el("div",{class:"hint"},"Crea le righe come le scrive il gioco: open|classe|zona di partenza dopo pick, e beat|classe|zone precedenti dopo stat. Tieni un backup e prova su una classe sola.")),
@@ -1136,9 +1380,11 @@ function gearEditor(c, owned){
   for(let s=0;s<slotCount(c);s++){
     const key=String(slotKey(c,s)), opts=[];
     for(let q=0;q<6;q++){ const id=itemId(c,s,q); if(owned.has(id)) opts.push(id); }
-    const sel=(kind,cur)=>{ const ids=[...new Set(opts.concat(cur?[cur]:[]))];
+    const sel=(kind,cur)=>{ const ids=[...new Set(opts.concat(cur&&cur!=="0"?[cur]:[]))];
       const e=el("select",{"aria-label":(kind==="equip"?"Indossato ":"Aspetto ")+SLOTS[s],onchange:ev=>{ setGear(kind,c,key,ev.target.value); renderTabKeepScroll(); }},
-        el("option",{value:""},"— vuoto —"), ...ids.map(id=>el("option",{value:id},itemLabel(id)+(owned.has(id)?"":" · non posseduto"))));
+        el("option",{value:""}, kind==="look"?"— come indossato —":"— vuoto —"),
+        kind==="look" ? el("option",{value:"0"},"Nascosto") : null,
+        ...ids.map(id=>el("option",{value:id},itemLabel(id)+(owned.has(id)?"":" · non posseduto"))));
       e.value=cur||""; return e; };
     tb.append(el("tr",null, el("th",{scope:"row"},SLOTS[s], el("div",{class:"hint mono"},"slot "+key)), el("td",null,el("span",{class:"glab"},"Indossato"),sel("equip",eq[key])), el("td",null,el("span",{class:"glab"},"Aspetto"),sel("look",lk[key]))));
   }
@@ -1163,27 +1409,47 @@ function seen(b){
 }
 
 /* --- Eroi --- */
+/* hero|classe|razza|sesso|pelle,viso,capelli,colore capelli,piercing  (aspetto, valori da 0; in gioco si vedono da 1)
+   pick ripete razza, sesso e aspetto della classe selezionata. */
+const RACE_NAMES = {1:"Umano",2:"Orco",3:"Nano",4:"Elfo della Notte",5:"Non Morto",6:"Tauren",7:"Gnomo",8:"Troll"};
+const FEATS = [["Pelle",10],["Viso",15],["Acconciatura",19],["Colore capelli",10],["Piercing",7]]; // massimi visti per Umana femmina
+function setHero(i, fn){
+  const f=F(i); while(f.length<5) f.push(f.length===4?"0,0,0,0,0":"0");
+  fn(f); S.lines[i]=f.join("|");
+  const p=idxOf("pick")[0];                          // tieni allineato il personaggio selezionato
+  if(p!=null && F(p)[1]===f[1]){ const g=F(p); g[2]=f[2]; g[3]=f[3]; if(g.length>6) g[6]=f[4]; S.lines[p]=g.join("|"); }
+  changed();
+}
 function heroes(b){
   const h=idxOf("hero");
-  const tb=el("tbody");
-  for(const i of h){
-    const f=F(i);
-    tb.append(el("tr",null,
-      el("td",null, numInput(f[1]||"0", v=>{setField(i,1,v);}, {"aria-label":"Classe"}), el("div",{class:"hint"},className(f[1]))),
-      el("td",null, numInput(f[2]||"0", v=>setField(i,2,v), {"aria-label":"Valore A"})),
-      el("td",null, numInput(f[3]||"0", v=>setField(i,3,v), {"aria-label":"Valore B"})),
-      el("td",null, txtInput(f.slice(4).join("|"), v=>{ const g=F(i).slice(0,4); while(g.length<4) g.push("0"); S.lines[i]=g.concat(v===""?[]:[v]).join("|"); changed(); }, "", {"aria-label":"Valori","class":"mono"})),
-      el("td",{class:"act"}, el("button",{class:"btn x",type:"button",title:"Rimuovi",onclick:()=>{S.lines.splice(i,1);changed();renderTab();}},"✕"))
-    ));
-  }
-  b.append(el("div",{class:"scroll"}, el("table",null, el("thead",null, el("tr",null, el("th",null,"Classe"),el("th",null,"Valore A"),el("th",null,"Giocata (0/1)"),el("th",null,"Valori (csv)"),el("th"))), tb)));
   if(!h.length) b.append(el("p",{class:"empty"},"Nessuna riga hero."));
-  b.append(el("div",{class:"row",style:"margin-top:10px"}, el("button",{class:"btn small",type:"button",onclick:()=>{
+  const grid=el("div",{class:"heroes"});
+  for(const i of h){
+    const f=F(i), c=f[1], ft=(f[4]||"0,0,0,0,0").split(",");
+    const race=el("select",{"aria-label":"Razza "+className(c),onchange:e=>setHero(i,g=>g[2]=e.target.value)},
+      ...Object.entries(RACE_NAMES).map(([id,n])=>el("option",{value:id},n)), !RACE_NAMES[f[2]]?el("option",{value:f[2]},"Razza "+f[2]):null);
+    race.value=f[2];
+    const sex=el("select",{"aria-label":"Sesso "+className(c),onchange:e=>setHero(i,g=>g[3]=e.target.value)},
+      el("option",{value:"0"},"Maschio"), el("option",{value:"1"},"Femmina"), !/^[01]$/.test(f[3]||"")?el("option",{value:f[3]},"Valore "+f[3]):null);
+    sex.value=f[3]||"0";
+    const feats=el("div",{class:"fields hfeats"}, ...FEATS.map(([n,mx],k)=>el("div",{class:"field"}, el("label",null,n+" (1-"+mx+")"),
+      numInput(String((Number(ft[k])||0)+1), v=>setHero(i,g=>{ const a=(g[4]||"0,0,0,0,0").split(","); while(a.length<5) a.push("0"); a[k]=String(Math.max(0,(Number(v)||1)-1)); g[4]=a.join(","); }),
+        {min:"1","aria-label":n+" "+className(c)}))));
+    grid.append(el("div",{class:"card"},
+      el("div",{class:"head"}, el("span",{class:"row"}, icon(CLASS_ICON[c],className(c),"ico lg"), el("span",{class:"title"}, className(c))),
+        el("span",{class:"row"}, el("span",{class:"badge"},"hero · "+c),
+          el("button",{class:"btn x",type:"button",title:"Rimuovi la riga hero",onclick:()=>{ if(confirm("Rimuovere la riga hero di "+className(c)+"?")){ S.lines.splice(i,1); changed(); renderTab(); } }},"✕"))),
+      el("div",{class:"fields",style:"margin-bottom:10px"},
+        el("div",{class:"field"}, el("label",null,"Razza"), race),
+        el("div",{class:"field"}, el("label",null,"Sesso"), sex)),
+      feats));
+  }
+  b.append(grid);
+  b.append(el("div",{class:"row",style:"margin-top:4px"}, el("button",{class:"btn small",type:"button",onclick:()=>{
     const last=h.length?h[h.length-1]+1:S.lines.length; S.lines.splice(last,0,"hero|1|1|0|0,0,0,0,0"); changed(); renderTab();
   }},"Aggiungi eroe")),
-  el("p",{class:"hint"},"Il flag Giocata passa da 0 a 1 la prima volta che giochi la classe (osservato su Guerriero, Stregone e Druido). Valore A non è documentato: non è il livello e può anche diminuire. Nel personaggio selezionato A e flag coincidono con i campi 2 e 3 della riga pick. ID classe come in WoW."));
+  el("p",{class:"hint"},"Formato hero|classe|razza|sesso|pelle,viso,acconciatura,colore capelli,piercing. Gli aspetti sono salvati da 0 ma qui li vedi come in gioco (da 1). I massimi indicati sono quelli di una Umana: cambiano con razza e sesso, e un valore oltre il massimo potrebbe essere riportato indietro dal gioco. Una razza è usabile solo se è tra quelle di base della classe o se l'hai sbloccata (card Razze nella scheda Perk). La riga pick della classe selezionata viene aggiornata insieme."));
 }
-
 /* --- Tutte le righe --- */
 function allLines(b){
   b.append(el("p",{class:"hint",style:"margin-top:0"},"Editor generico: ogni riga è un tipo seguito da campi separati da “|”. Utile per righe non gestite dalle altre schede (equip, look, resets…)."));
