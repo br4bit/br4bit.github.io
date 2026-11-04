@@ -148,8 +148,8 @@ table.armory th,table.armory td{text-align:center}
 table.armory th[scope=row]{text-align:left;font-size:13px;color:var(--fg);white-space:nowrap}
 .chk{display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:var(--mute)}
 .chk input{width:18px;height:18px;margin:0}
-.q0{--q:#9d9d9d}.q1{--q:#1eff00}.q2{--q:#0070dd}.q3{--q:#a335ee}.q4{--q:#c69b6d}.q5{--q:#ff8000}
-th.q0,th.q1,th.q2,th.q3,th.q4,th.q5{color:color-mix(in srgb,var(--q) 72%,var(--fg));font-size:12px}
+.q0{--q:#9d9d9d}.q1{--q:#1eff00}.q2{--q:#0070dd}.q3{--q:#a335ee}.q4{--q:#c69b6d}.q5{--q:#ff8000}.q7{--q:#b98cff}
+th.q0,th.q1,th.q2,th.q3,th.q4,th.q5,th.q7{color:color-mix(in srgb,var(--q) 72%,var(--fg));font-size:12px}
 @media (max-width:560px){.chk .mono{display:none} table.armory th,table.armory td{padding:5px 3px} table.armory th.cc{font-size:10.5px;hyphens:auto} table.armory th[scope=row]{white-space:normal;font-size:12px;min-width:56px}}
 .chk input{accent-color:var(--q)}
 .builds{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
@@ -783,11 +783,17 @@ function talents(b){
 /* ---- scheda Armeria ---- */
 const SLOTS = ["Testa","Spalle","Torso","Vita","Gambe","Piedi","Polsi","Mani","Arma principale","Mano secondaria"];
 const slotCount = c => (String(c)==="4"||String(c)==="7") ? 10 : 9; // Ladro e Sciamano hanno la mano secondaria
-const DROP = ["Elwynn Forest / Duskwood","Warsong Gulch / Un’Goro","Arathi Basin / Feralas","Gurubashi Arena / Scarlet Monastery","Alterac Valley / Blackrock Mountain","Gates of Ahn’Qiraj / Naxxramas"];
+const DROP = ["Elwynn Forest / Duskwood","Warsong Gulch / Un’Goro","Arathi Basin / Feralas","Gurubashi Arena / Scarlet Monastery","Gates of Ahn’Qiraj / Naxxramas","Alterac Valley / Blackrock Mountain",null,"Scholomance"];
 const SHAMAN_RARE = ["Earthfury Helm","Earthfury Spaulders","Earthfury Breastplate","Earthfury Belt","Earthfury Legguards","Earthfury Greaves","Earthfury Bracers","Earthfury Gauntlets","Earthfury Hammer","Totem Shield"];
 const SHAMAN_COMMON = {6:"Primal Bracers",7:"Primal Gauntlets",9:"Round Buckler"};
 const itemName = (c,s,q) => String(c)==="7"&&q===2 ? SHAMAN_RARE[s] : (String(c)==="7"&&q===0&&SHAMAN_COMMON[s]) ? SHAMAN_COMMON[s] : null;
-const QUALS = [["Comune","q0"],["Non comune","q1"],["Raro","q2"],["Epico","q3"],["PvP","q4"],["Leggendario","q5"]];
+/* Indice = cifra del set nell'id del pezzo. Verificato in gioco (novembre 2026): 4 = Leggendario (i pezzi indossati, "E"),
+   5 = PvP (le stelle messe su 1xx50 compaiono sul PvP). QORDER è l'ordine della Collection del gioco.
+   Tier 0.5 (Scholomance, novembre 2026) usa la cifra 7, verificato: Soulforge Belt del Paladino = 102370. La cifra 6 non è usata. */
+const QUALS = [["Comune","q0"],["Non comune","q1"],["Raro","q2"],["Epico","q3"],["Leggendario","q5"],["PvP","q4"],null,["Tier 0.5","q7"]];
+const QLEG = 4, QPVP = 5, QT05 = 7, QORDER = [0,1,2,3,5,7,4];
+const QSETS = [0,1,2,3,4,5,7], QSIX = [0,1,2,3,4,5]; // QSIX: i set di prima di Scholomance (Wardrobe, The Whole Armory)
+const QSHOW = QORDER.map(q=>[QUALS[q][0],QUALS[q][1],q]);
 const itemId = (c,s,q) => String(100000 + Number(c)*1000 + s*100 + q*10);
 function itemsLine(create){
   let i = idxOf("items")[0];
@@ -797,10 +803,10 @@ function itemsLine(create){
 const itemSet = () => { const i=itemsLine(false); return new Set(i==null ? [] : (F(i)[1]||"").split(",").filter(Boolean)); };
 function writeItems(fn){
   const i=itemsLine(true), list=(F(i)[1]||"").split(",").filter(Boolean);
-  setField(i, 1, fn(list).join(","));
+  setField(i, 1, [...new Set(fn(list))].sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b)).join(",")); // il gioco tiene la riga in ordine numerico
 }
 const ARMORY_CLASSES = ["1","2","3","4","5","7","8","9","11"];
-const allItemIds = () => ARMORY_CLASSES.flatMap(c=>{ const o=[]; for(let q=0;q<6;q++) for(let s=0;s<slotCount(c);s++) o.push(itemId(c,s,q)); return o; });
+const allItemIds = (sets=QSETS) => ARMORY_CLASSES.flatMap(c=>{ const o=[]; for(const q of sets) for(let s=0;s<slotCount(c);s++) o.push(itemId(c,s,q)); return o; });
 function armory(b){
   const classes = ARMORY_CLASSES;
   { const owned=itemSet(), all=allItemIds(), tot=all.filter(x=>owned.has(x)).length;
@@ -818,33 +824,33 @@ function armory(b){
   const owned = itemSet();
   const bar = el("div",{class:"classbar",role:"group","aria-label":"Classe"});
   for (const c of classes) {
-    let n=0; for(let s=0;s<slotCount(c);s++) for(let q=0;q<6;q++) if(owned.has(itemId(c,s,q))) n++;
+    let n=0; for(let s=0;s<slotCount(c);s++) for(const q of QSETS) if(owned.has(itemId(c,s,q))) n++;
     bar.append(el("button",{class:"chip",type:"button","aria-pressed":String(S.acls===c),onclick:()=>{S.acls=c;renderTab();}},
-      icon(CLASS_ICON[c], className(c), "ico sm"), className(c), el("span",{class:"cnt"}, n+"/"+(slotCount(c)*6))));
+      icon(CLASS_ICON[c], className(c), "ico sm"), className(c), el("span",{class:"cnt"}, n+"/"+(slotCount(c)*QSETS.length))));
   }
   b.append(bar);
   const c = S.acls;
   const tb = el("tbody");
   for (let s=0;s<slotCount(c);s++) {
     tb.append(el("tr",null, el("th",{scope:"row"},SLOTS[s]),
-      ...QUALS.map(([qn,qc],q)=>{ const id=itemId(c,s,q);
+      ...QSHOW.map(([qn,qc,q])=>{ const id=itemId(c,s,q);
         return el("td",{class:"cc"}, el("label",{class:"chk "+qc,title:(itemName(c,s,q)||qn+" · "+SLOTS[s])+" · "+id+"\nDrop: "+DROP[q]},
           el("input",{type:"checkbox",checked:owned.has(id),"aria-label":qn+" "+SLOTS[s],onchange:e=>{
             const on=e.target.checked; writeItems(l=>on ? (l.includes(id)?l:l.concat(id)) : l.filter(x=>x!==id)); renderTabKeepScroll(); }}),
           el("span",{class:"mono"},id.slice(-3)))); })));
   }
-  const all = (on, filter) => { const ids=[]; for(let s=0;s<slotCount(c);s++) for(let q=0;q<6;q++) if(!filter||filter(q)) ids.push(itemId(c,s,q));
+  const all = (on, filter) => { const ids=[]; for(let s=0;s<slotCount(c);s++) for(const q of QSETS) if(!filter||filter(q)) ids.push(itemId(c,s,q));
     writeItems(l=> on ? l.concat(ids.filter(x=>!l.includes(x))) : l.filter(x=>!ids.includes(x))); renderTab(); };
-  let have=0; for(let s=0;s<slotCount(c);s++) for(let q=0;q<6;q++) if(owned.has(itemId(c,s,q))) have++;
+  let have=0; for(let s=0;s<slotCount(c);s++) for(const q of QSETS) if(owned.has(itemId(c,s,q))) have++;
   b.append(el("div",{class:"card"},
-    el("div",{class:"head"}, el("span",{class:"row"}, icon(CLASS_ICON[c], className(c), "ico lg"), el("span",null, el("div",{class:"title"},"Armeria · "+className(c)), el("div",{class:"hint"}, have+" / "+(slotCount(c)*6)+" raccolti"))),
+    el("div",{class:"head"}, el("span",{class:"row"}, icon(CLASS_ICON[c], className(c), "ico lg"), el("span",null, el("div",{class:"title"},"Armeria · "+className(c)), el("div",{class:"hint"}, have+" / "+(slotCount(c)*QSETS.length)+" raccolti"))),
       el("span",{class:"row"},
         el("button",{class:"btn small",type:"button",onclick:()=>all(true)},"Sblocca tutti per "+className(c)),
-        el("button",{class:"btn small",type:"button",onclick:()=>all(true,q=>q!==4)},"Tutto tranne PvP"),
+        el("button",{class:"btn small",type:"button",onclick:()=>all(true,q=>q!==QPVP)},"Tutto tranne PvP"),
         el("button",{class:"btn small",type:"button",onclick:()=>all(false)},"Nessuno"))),
     el("div",{class:"scroll"}, el("table",{class:"armory"},
-      el("thead",null, el("tr",null, el("th",null,"Slot"), ...QUALS.map(([qn,qc],q)=>el("th",{class:"cc "+qc,title:"Drop: "+DROP[q]},qn)))), tb)),
-    el("p",{class:"hint",style:"margin:10px 0 0"},"Ogni casella aggiunge o toglie l'id dalla riga items (id = 100000 + classe×1000 + slot×100 + rarità×10). Ladro e Sciamano hanno anche la mano secondaria (10 slot, 60 pezzi; 498 in tutto). Passa sopra una casella per nome e zona di drop: i nomi reali sono verificati solo per lo Sciamano. Gli id fuori da questo schema restano invariati.")));
+      el("thead",null, el("tr",null, el("th",null,"Slot"), ...QSHOW.map(([qn,qc,q])=>el("th",{class:"cc "+qc,title:"Drop: "+DROP[q]},qn)))), tb)),
+    el("p",{class:"hint",style:"margin:10px 0 0"},"Ogni casella aggiunge o toglie l'id dalla riga items (id = 100000 + classe×1000 + slot×100 + set×10, con set 0 Comune, 1 Non comune, 2 Raro, 3 Epico, 4 Leggendario, 5 PvP, 7 Tier 0.5). Ladro e Sciamano hanno anche la mano secondaria (10 slot, 70 pezzi; 581 in tutto, di cui 83 Tier 0.5). Passa sopra una casella per nome e zona di drop: i nomi reali sono verificati solo per lo Sciamano. Gli id fuori da questo schema restano invariati.")));
   b.append(starsCard(c, itemSet()));
   b.append(glowCard(c));
   b.append(gearEditor(c, itemSet()));
@@ -884,14 +890,16 @@ function writeStars(m){
   else if(keys.length) insertLineAfter(["stars|"],["marks|","hero|"],v);
   changed();
 }
-const tierZones = q => [ZONES[2*q][1], ZONES[2*q+1][1]];
+/* Zone in cui cade ogni set (come nella Collection del gioco). Tier 0.5 (solo Scholomance) si aggiungerà quando saranno noti gli id dei pezzi. */
+const SET_ZONES = [["elwynn","duskwood"],["wsg","ungoro"],["ab","feralas"],["arena","sm"],["aq","naxx"],["av","brm"],null,["scholomance"]]; // indice = cifra del set (4 Leggendario, 5 PvP, 7 Tier 0.5)
+const tierZones = q => SET_ZONES[q];
 function starCap(c,q){ const hb=hbeatMap(c); return Math.min(STAR_MAX, Math.max(...tierZones(q).map(z=>hb[z]||0))); }
 function starsCard(c, owned){
   const st=starsMap(), tb=el("tbody");
-  const caps=QUALS.map((_,q)=>starCap(c,q));
+  const caps={}; for(const q of QSETS) caps[q]=starCap(c,q);
   for(let s=0;s<slotCount(c);s++){
     tb.append(el("tr",null, el("th",{scope:"row"},SLOTS[s]),
-      ...QUALS.map(([qn,qc],q)=>{ const id=itemId(c,s,q), v=st[id]||0, has=owned.has(id);
+      ...QSHOW.map(([qn,qc,q])=>{ const id=itemId(c,s,q), v=st[id]||0, has=owned.has(id);
         const sel=el("select",{class:"ssel"+(v>caps[q]?" over":""),disabled:!has,"aria-label":"Stelle "+qn+" "+SLOTS[s],
           title:has?(itemName(c,s,q)||qn+" · "+SLOTS[s])+" · "+id+"\nAperte fino a "+caps[q]+" stelle":"Pezzo non posseduto",
           onchange:e=>{ const m=starsMap(); m[id]=Number(e.target.value); writeStars(m); renderTabKeepScroll(); }},
@@ -899,8 +907,8 @@ function starsCard(c, owned){
         sel.value=String(v);
         return el("td",{class:"cc"}, sel); })));
   }
-  const setAll=(fn)=>{ const m=starsMap(); for(let s=0;s<slotCount(c);s++) for(let q=0;q<6;q++){ const id=itemId(c,s,q); if(owned.has(id)){ const n=fn(q,m[id]||0); if(n>0) m[id]=n; else delete m[id]; } } writeStars(m); renderTab(); };
-  const over=QUALS.some((_,q)=>{ for(let s=0;s<slotCount(c);s++) if((st[itemId(c,s,q)]||0)>caps[q]) return true; return false; });
+  const setAll=(fn)=>{ const m=starsMap(); for(let s=0;s<slotCount(c);s++) for(const q of QSETS){ const id=itemId(c,s,q); if(owned.has(id)){ const n=fn(q,m[id]||0); if(n>0) m[id]=n; else delete m[id]; } } writeStars(m); renderTab(); };
+  const over=QSETS.some(q=>{ for(let s=0;s<slotCount(c);s++) if((st[itemId(c,s,q)]||0)>caps[q]) return true; return false; });
   return el("div",{class:"card"},
     el("div",{class:"head"}, el("span",{class:"title"},"Stelle · "+className(c)),
       el("span",{class:"row"},
@@ -911,8 +919,8 @@ function starsCard(c, owned){
     over ? el("div",{class:"status bad",style:"display:block;margin:0 0 10px"},"Alcuni pezzi (in rosso) hanno più stelle di quelle aperte dall'Eroico battuto: il gioco potrebbe ridurle. Usa la scheda Zone per impostare l'Eroico battuto.") : null,
     el("div",{class:"scroll"}, el("table",{class:"armory"},
       el("thead",null,
-        el("tr",null, el("th",null,"Slot"), ...QUALS.map(([qn,qc],q)=>el("th",{class:"cc "+qc,title:"Zone: "+DROP[q]},qn))),
-        el("tr",null, el("th",{class:"hint"},"aperte fino a"), ...caps.map(n=>el("th",{class:"cc hint"}, n?"★"+n:"–")))), tb)),
+        el("tr",null, el("th",null,"Slot"), ...QSHOW.map(([qn,qc,q])=>el("th",{class:"cc "+qc,title:"Zone: "+DROP[q]},qn))),
+        el("tr",null, el("th",{class:"hint"},"aperte fino a"), ...QORDER.map(q=>caps[q]).map(n=>el("th",{class:"cc hint"}, n?"★"+n:"–")))), tb)),
     el("p",{class:"hint",style:"margin:10px 0 0"},"Formato stars|id:stelle,… (una riga per tutto l'account). Le stelle di un set si aprono battendo l'Eroico nelle sue zone con questa classe: Eroico N = fino a N stelle. In gioco la prima stella costa 1 marchio; l'app non scala i marchi, per quello usa la card Marchi in Panoramica."));
 }
 /* ---- scheda Perk ---- */
@@ -982,7 +990,7 @@ function ensureHeroic(c, z, n){
 function giveStars(c, q, slots, n){
   const ids=slots.map(s=>itemId(c,s,q));
   writeItems(l=>l.concat(ids.filter(x=>!l.includes(x))));
-  tierZones(q).forEach(z=>ensureHeroic(c, z, n));    // le stelle del set si aprono con l'Eroico nelle sue zone: entrambe (Armory of Legends conta solo con aq e naxx)
+  tierZones(q).forEach(z=>ensureHeroic(c, z, n));    // le stelle del set si aprono con l'Eroico nelle sue zone
   const m=starsMap(); for(const id of ids) m[id]=Math.max(m[id]||0,n); writeStars(m);
 }
 function giveTalents(c){
@@ -995,8 +1003,8 @@ function giveTalents(c){
 function achCatalog(){
   const L=[];
   const add=(cat,name,pts,desc,id,rew,check,lever,all,ver)=>L.push({cat,name,pts,desc,id,rew,check,lever,all:!!all,ver:ver!==false});
-  const ZPTS={elwynn:10,duskwood:10,wsg:10,ungoro:10,ab:10,feralas:15,arena:15,sm:15,av:15,brm:20,aq:25,naxx:30};
-  const ZBOSS={elwynn:"Edwin VanCleef",duskwood:"Morbent Fel",wsg:"Lord Kazzak",ungoro:"King Mosh",ab:"Lord Aliden Perenolde",feralas:"King Gordok",arena:"Hakkar",sm:"High Inquisitor Whitemane",av:"Azuregos",brm:"Nefarian",aq:"C'Thun",naxx:"Kel'Thuzad"};
+  const ZPTS={elwynn:10,duskwood:10,wsg:10,ungoro:10,ab:10,feralas:15,arena:15,sm:15,av:15,brm:20,scholomance:20,aq:25,naxx:30};
+  const ZBOSS={elwynn:"Edwin VanCleef",duskwood:"Morbent Fel",wsg:"Lord Kazzak",ungoro:"King Mosh",ab:"Lord Aliden Perenolde",feralas:"King Gordok",arena:"Hakkar",sm:"High Inquisitor Whitemane",av:"Azuregos",brm:"Nefarian",scholomance:"Darkmaster Gandling",aq:"C'Thun",naxx:"Kel'Thuzad"};
   const ZREW={elwynn:"Perk Banish",duskwood:"Perk Skip, Snowshoe Rabbit",wsg:"Perk Veteran's Lessons, 2 tabard, Crimson Macaw",ab:"2 tabard, Great Horned Owl",feralas:"Tree Frog",arena:"Black Kingsnake",av:"2 tabard, Sprite Darter",brm:"Black Whelpling",aq:"Zergling"};
   // Zone
   for(const [n,z] of ZONES) add("Zone",n,ZPTS[z],"Batti "+ZBOSS[z]+" in "+n+" con una classe qualsiasi.","zone:"+z,ZREW[z]||"",
@@ -1013,23 +1021,28 @@ function achCatalog(){
   // Collezione
   const pc=[["Collector",25,10,"pieces:25","Perk Keen Eye"],["Hoarder",100,10,"pieces:100",""],["Curator",250,25,"pieces:250",""],["The Whole Armory",498,50,"pieces:all",""]];
   for(const [n,k,p,id,r] of pc) add("Collezione",n,p,"Raccogli "+(k===498?"tutti i pezzi di ogni classe":k+" pezzi")+".",id,r,()=>{const o=ownedSchemaItems(); return [o>=k,o+"/"+k];},
-    ()=>writeItems(l=>l.concat(allItemIds().filter(x=>!l.includes(x)))));
-  add("Collezione","Legendary",25,"Tutti i pezzi leggendari di una classe.","legendaryset","",()=>[ALL_CLASSES.some(c=>{const o=itemSet(); for(let s=0;s<slotCount(c);s++) if(!o.has(itemId(c,s,5))) return false; return true;}),""],
-    c=>{ const ids=[]; for(let s=0;s<slotCount(c);s++) ids.push(itemId(c,s,5)); writeItems(l=>l.concat(ids.filter(x=>!l.includes(x)))); });
+    ()=>writeItems(l=>l.concat(allItemIds(QSIX))));
+  add("Collezione","Legendary",25,"Tutti i pezzi leggendari di una classe.","legendaryset","",()=>[ALL_CLASSES.some(c=>{const o=itemSet(); for(let s=0;s<slotCount(c);s++) if(!o.has(itemId(c,s,QLEG))) return false; return true;}),""],
+    c=>{ const ids=[]; for(let s=0;s<slotCount(c);s++) ids.push(itemId(c,s,QLEG)); writeItems(l=>l.concat(ids.filter(x=>!l.includes(x)))); });
   add("Collezione","Jeweler's Eye",10,"Vedi metà degli anelli, monili e amuleti del codex.",null,"",()=>[false,""],null);
   add("Collezione","Every Bauble",25,"Vedi tutti gli anelli, monili e amuleti del codex.",null,"",()=>[false,""],null);
   add("Collezione","Polished",10,"Un pezzo a 1 stella.","stars:1","",()=>[maxStar()>=1,""], c=>giveStars(c,0,[0],1));
   add("Collezione","Honed",10,"Un pezzo a 3 stelle.","stars:3","",()=>[maxStar()>=3,""], c=>giveStars(c,0,[0],3));
-  add("Collezione","Matched",10,"Bonus set: quattro pezzi d'armatura di un set ad almeno 1 stella.","setbonus","",()=>[ALL_CLASSES.some(c=>[0,1,2,3,4,5].some(q=>setStars(c,q,1)>=4)),""], c=>giveStars(c,0,[0,1,2,3],1));
+  add("Collezione","Matched",10,"Bonus set: quattro pezzi d'armatura di un set ad almeno 1 stella.","setbonus","",()=>[ALL_CLASSES.some(c=>QSETS.some(q=>setStars(c,q,1)>=4)),""], c=>giveStars(c,0,[0,1,2,3],1));
   add("Collezione","Shared Wisdom",25,"Gli otto pezzi d'armatura di un set ad almeno 1 stella con ogni classe.","sharedset","",()=>{const n=classesWith(c=>fullSet(c,0,1)); return [n===9,n+"/9"];}, ()=>ALL_CLASSES.forEach(c=>giveStars(c,0,ARMOR_SLOTS,1)), true);
-  add("Collezione","Suited Up",10,"Bonus a 8 pezzi: gli otto pezzi d'armatura di un set ad almeno 3 stelle.","set8","",()=>[ALL_CLASSES.some(c=>[0,1,2,3,4,5].some(q=>fullSet(c,q,3))),""], c=>giveStars(c,0,ARMOR_SLOTS,3));
+  add("Collezione","Suited Up",10,"Bonus a 8 pezzi: gli otto pezzi d'armatura di un set ad almeno 3 stelle.","set8","",()=>[ALL_CLASSES.some(c=>QSETS.some(q=>fullSet(c,q,3))),""], c=>giveStars(c,0,ARMOR_SLOTS,3));
   add("Collezione","Wardrobe",25,"Bonus a 8 pezzi di tutti e sei i set con una classe.","wardrobe","",()=>{let b=0; for(const c of ALL_CLASSES) b=Math.max(b,[0,1,2,3,4,5].filter(q=>fullSet(c,q,3)).length); return [b===6,b+"/6"];},
     c=>[0,1,2,3,4,5].forEach(q=>giveStars(c,q,ARMOR_SLOTS,3)));
-  // Verificato: il gioco conta una classe solo se ha gli 8 pezzi d'armatura di TUTTI e sei i set a 3 stelle
-  // (con il solo leggendario a 3 stelle segnava 1/9, anche con l'Eroico in Ahn'Qiraj e Naxxramas)
-  const legendOk = c => [0,1,2,3,4,5].every(q=>fullSet(c,q,3));
-  add("Collezione","Armory of Legends",50,"Bonus a 8 pezzi del set leggendario con ogni classe: il gioco conta la classe solo se ha tutti e sei i set a 3 stelle.",null,"",()=>{const n=classesWith(legendOk); return [n===9,n+"/9"];},
-    ()=>ALL_CLASSES.forEach(c=>[0,1,2,3,4,5].forEach(q=>giveStars(c,q,ARMOR_SLOTS,3))), true);
+  // Il leggendario è la cifra 4 (QLEG): gli 8 pezzi d'armatura a 3 stelle per ogni classe. Coerente con i test in gioco
+  // (1/9 col solo Sacerdote, 2/9 dopo aver dato al Paladino i set 1-4).
+  const legendOk = c => fullSet(c,QLEG,3);
+  add("Collezione","Armory of Legends",50,"Bonus a 8 pezzi del set leggendario (8 pezzi d'armatura a 3 stelle) con ogni classe.",null,"",()=>{const n=classesWith(legendOk); return [n===9,n+"/9"];},
+    ()=>ALL_CLASSES.forEach(c=>giveStars(c,QLEG,ARMOR_SLOTS,3)), true);
+  // Aggiornamento di novembre 2026. 83 pezzi = 9 classi × (8 armatura + arma) + seconda arma di Ladro e Sciamano.
+  // Leva da aggiungere quando si conoscono gli id dei pezzi Tier 0.5 (serve un salvataggio con almeno un pezzo trovato).
+  const t05Ids = () => allItemIds([QT05]);
+  add("Collezione","You Are Not Prepared!",50,"Tutti gli 8 pezzi d'armatura Tier 0.5 di Scholomance e l'arma fissa di Gandling per ognuna delle 9 classi (83 pezzi).",null,"",
+    ()=>{const o=itemSet(), n=t05Ids().filter(x=>o.has(x)).length; return [n>=83,n+"/83"];}, ()=>writeItems(l=>l.concat(t05Ids())), true, false);
   // Imprese (solo in gioco)
   const feats=[["Humble Beginnings",25,"Batti Naxxramas col bonus a 8 pezzi del set comune."],["Overtime",10,"Uccidi 3 boss in endless in una partita."],["Never Ending",25,"Uccidi 6 boss in endless in una partita."],
     ["Hazard Pay",25,"Guadagna 100 marchi in una partita."],["Danger Money",50,"Guadagna 50 marchi da un solo boss."],["Slaughterhouse",10,"Uccidi 2.500 nemici in una partita.","feat:kills2500","Perk Opening Hand"],
@@ -1056,7 +1069,7 @@ function achCatalog(){
   add("Co-op","Better Together",10,"Completa la prima zona con almeno un altro giocatore.","coop:together","Admiral's Hat",()=>[coopSet().size>0,""],()=>coopAdd(["elwynn"]));
   add("Co-op","For the Team",10,"Completa Warsong Gulch e Arathi Basin in co-op.","coop:team","Perk United Front",()=>{const s=coopSet(); const n=["wsg","ab"].filter(z=>s.has(z)).length; return [n===2,n+"/2"];},()=>coopAdd(["wsg","ab"]));
   add("Co-op","Dragonslayers",25,"Batti Azuregos e Nefarian in co-op.","coop:dragonslayers","Cloak of the Brood Lord",()=>{const s=coopSet(); const n=["av","brm"].filter(z=>s.has(z)).length; return [n===2,n+"/2"];},()=>coopAdd(["av","brm"]));
-  add("Co-op","Together, To the End",50,"Completa tutte e 12 le zone in co-op.","coop:end","Mr. Bigglesworth",()=>{const n=coopSet().size; return [n>=12,n+"/12"];},()=>coopAdd(zkeys()));
+  add("Co-op","Together, To the End",50,"Completa le zone in co-op (il gioco l'ha assegnato con le 12 zone di prima di Scholomance).","coop:end","Mr. Bigglesworth",()=>{const n=coopSet().size; return [n>=12,n+"/12"];},()=>coopAdd(zkeys()));
   const coop=[["Five of a Kind",25,"Una zona in co-op con 5 giocatori della stessa classe.","Bloodsail Admiral's Hat"],["Rest in Photosynthesis",50,"Kel'Thuzad su Eroico III con 5 Druidi (Tranquility).","Ancient Protector"],
     ["The Insane",50,"Sopravvivi 40 minuti in Naxxramas su Eroico V con altri due giocatori.","bagliore Unholy Weapon"],["Matching Outfits",25,"Vinci in gruppo da 3+ con lo stesso set a 8 pezzi.",""],["Raid Night",25,"Batti Eroico III in gruppo da cinque.",""],
     ["Against All Odds",50,"Una zona su Eroico III in co-op.","Contest Winner's Tabard"],["The Brotherhood Falls",25,"VanCleef in co-op con 5 classi diverse.","Cape of the Brotherhood"],
@@ -1067,12 +1080,12 @@ function achCatalog(){
   // Eroico
   add("Eroico","Heroic Debut",10,"Batti Eroico I in una zona qualsiasi.","heroic:1","",()=>[maxHeroic()>=1,""],c=>ensureHeroic(c,"elwynn",1));
   add("Eroico","Heroic Resolve",25,"Batti Eroico III in una zona qualsiasi.","heroic:3","",()=>[maxHeroic()>=3,""],c=>ensureHeroic(c,"elwynn",3));
-  add("Eroico","Heroic Across Azeroth",50,"Batti Eroico III in ogni zona, con classi qualsiasi.","heroic:all3","",()=>{const n=zkeys().filter(z=>heroicZone(z,3)).length; return [n===12,n+"/12"];},c=>zkeys().forEach(z=>ensureHeroic(c,z,3)));
+  add("Eroico","Heroic Across Azeroth",50,"Batti Eroico III in ogni zona, con classi qualsiasi.","heroic:all3","",()=>{const n=zkeys().filter(z=>heroicZone(z,3)).length; return [n===ZONES.length,n+"/"+ZONES.length];},c=>zkeys().forEach(z=>ensureHeroic(c,z,3)));
   add("Eroico","Champion of Naxxramas",50,"Batti Eroico V in Naxxramas.","heroic:naxx5","bagliore Crusader",()=>[heroicZone("naxx",5),""],c=>ensureHeroic(c,"naxx",5));
   add("Eroico","Beyond the Vault",10,"Un pezzo a 4 stelle.","stars:4","",()=>[maxStar()>=4,""],c=>giveStars(c,0,[0],4));
   add("Eroico","Five Stars",25,"Un pezzo a 5 stelle.","stars:5","",()=>[maxStar()>=5,""],c=>giveStars(c,0,[0],5));
-  add("Eroico","Empowered",25,"Gli otto pezzi d'armatura di un set a 5 stelle.","empowered","",()=>[ALL_CLASSES.some(c=>[0,1,2,3,4,5].some(q=>fullSet(c,q,5))),""],c=>giveStars(c,0,ARMOR_SLOTS,5));
-  add("Eroico","Radiant Armory",50,"Set a 8 pezzi a 5 stelle con ogni classe.","radiantarmory","bagliore Fiery Weapon",()=>{const n=classesWith(c=>[0,1,2,3,4,5].some(q=>fullSet(c,q,5))); return [n===9,n+"/9"];},()=>ALL_CLASSES.forEach(c=>giveStars(c,0,ARMOR_SLOTS,5)),true);
+  add("Eroico","Empowered",25,"Gli otto pezzi d'armatura di un set a 5 stelle.","empowered","",()=>[ALL_CLASSES.some(c=>QSETS.some(q=>fullSet(c,q,5))),""],c=>giveStars(c,0,ARMOR_SLOTS,5));
+  add("Eroico","Radiant Armory",50,"Set a 8 pezzi a 5 stelle con ogni classe.","radiantarmory","bagliore Fiery Weapon",()=>{const n=classesWith(c=>QSETS.some(q=>fullSet(c,q,5))); return [n===9,n+"/9"];},()=>ALL_CLASSES.forEach(c=>giveStars(c,0,ARMOR_SLOTS,5)),true);
   add("Eroico","Unpolished",25,"Batti Eroico II o superiore senza pezzi sopra 0 stelle.",null,"",()=>[false,""],null);
   return L;
 }
@@ -1192,7 +1205,8 @@ function perks(b){
           : el("span",{class:"hint"},"formato non riconosciuto, non modificabile"))));
 }
 /* ---- scheda Zone ---- */
-const ZONES = [["Elwynn Forest","elwynn"],["Duskwood","duskwood"],["Warsong Gulch","wsg"],["Un’Goro Crater","ungoro"],["Arathi Basin","ab"],["Feralas","feralas"],["Gurubashi Arena","arena"],["Scarlet Monastery","sm"],["Alterac Valley","av"],["Blackrock Mountain","brm"],["Gates of Ahn’Qiraj","aq"],["Naxxramas","naxx"]];
+// Scholomance aggiunta dall'aggiornamento di novembre 2026, tra Blackrock Mountain e Ahn'Qiraj (ordine verificato nelle righe beat)
+const ZONES = [["Elwynn Forest","elwynn"],["Duskwood","duskwood"],["Warsong Gulch","wsg"],["Un’Goro Crater","ungoro"],["Arathi Basin","ab"],["Feralas","feralas"],["Gurubashi Arena","arena"],["Scarlet Monastery","sm"],["Alterac Valley","av"],["Blackrock Mountain","brm"],["Scholomance","scholomance"],["Gates of Ahn’Qiraj","aq"],["Naxxramas","naxx"]];
 const zoneIdx = k => { const i=ZONES.findIndex(z=>z[1]===k); return i<0?999:i; };
 const zoneName = k => (ZONES.find(z=>z[1]===k)||[k])[0];
 const zLine = (kind,c,lines) => (lines||S.lines).findIndex(l=>l.startsWith(kind+"|"+c+"|"));
@@ -1246,7 +1260,7 @@ function zones(b){
   if(!S.zcls||!classes.includes(S.zcls)){ const p=idxOf("pick")[0]; S.zcls=(p!=null&&classes.includes(F(p)[1]))?F(p)[1]:classes[0]; }
   const bar=el("div",{class:"classbar",role:"group","aria-label":"Classe"});
   for(const c of classes) bar.append(el("button",{class:"chip",type:"button","aria-pressed":String(S.zcls===c),onclick:()=>{S.zcls=c;renderTab();}},
-    icon(CLASS_ICON[c],className(c),"ico sm"), className(c), el("span",{class:"cnt"}, zoneInit(c)? beatSet(c).size+"/12" : "—")));
+    icon(CLASS_ICON[c],className(c),"ico sm"), className(c), el("span",{class:"cnt"}, zoneInit(c)? beatSet(c).size+"/"+ZONES.length : "—")));
   b.append(bar);
   const missing=classes.filter(c=>!zoneInit(c) && idxOf("hero").some(i=>F(i)[1]===c));
   if(missing.length){
@@ -1277,7 +1291,7 @@ function zones(b){
   const c=S.zcls, init=zoneInit(c), beat=beatSet(c), oi=zLine("open",c), ui=zLine("unlock",c);
   const card=el("div",{class:"card"},
     el("div",{class:"head"}, el("span",{class:"row"}, icon(CLASS_ICON[c],className(c),"ico lg"), el("span",{class:"title"},"Zone · "+className(c))),
-      el("span",{class:"spent"}, init ? beat.size+" / 12 completate" : "non inizializzate")));
+      el("span",{class:"spent"}, init ? beat.size+" / "+ZONES.length+" completate" : "non inizializzate")));
   if(!init){
     const hu=heroUnlocked(c), tsel=el("select",{"aria-label":"Sblocca fino a"}, ...ZONES.map(([n,k])=>el("option",{value:k},n)));
     tsel.value="elwynn";
@@ -1291,7 +1305,7 @@ function zones(b){
             if(!confirm("Creare i progressi zone per "+className(c)+" fino a "+zoneName(tsel.value)+"? È una funzione sperimentale: tieni la stringa originale come backup.")) return;
             initZones(c,tsel.value); renderTab(); toast("Zone inizializzate per "+className(c)); }},"Inizializza"))));
   } else {
-    card.append(el("div",{class:"zbar"}, el("span",{style:"width:"+(beat.size/12*100)+"%"})));
+    card.append(el("div",{class:"zbar"}, el("span",{style:"width:"+(beat.size/ZONES.length*100)+"%"})));
     const info=[];
     if(oi>=0) info.push("Zona selezionata nel gioco: "+zoneName(F(oi).slice(2).join("|"))+" (non modificata).");
     if(ui>=0) info.push("Salvataggio di formato vecchio: la riga unlock ("+F(ui)[2]+") viene aggiornata insieme alle zone.");
@@ -1324,7 +1338,7 @@ function zones(b){
     card.append(el("div",{class:"row",style:"margin-top:12px"},
       el("span",{class:"hint"},"Sblocca fino a"), sel,
       el("button",{class:"btn small",type:"button",title:"Segna come completate tutte le zone prima di quella scelta (la destinazione resta da fare)",onclick:()=>{ const st=beatSet(c); for(let i=0;i<zoneIdx(sel.value);i++) st.add(ZONES[i][1]); writeBeat(c,st); renderTab(); toast("Prerequisiti completati"); }},"Completa i prerequisiti"),
-      el("button",{class:"btn small",type:"button",onclick:()=>{ writeBeat(c,new Set(ZONES.map(z=>z[1]))); renderTab(); }},"Tutte e 12"),
+      el("button",{class:"btn small",type:"button",onclick:()=>{ writeBeat(c,new Set(ZONES.map(z=>z[1]))); renderTab(); }},"Tutte"),
       el("button",{class:"btn small ghost",type:"button",title:"Rimetti le righe open, beat e unlock di questa classe come nel salvataggio importato (se la classe non le aveva, vengono tolte)",onclick:()=>{
         const orig=S.original.split("\n");
         for(const kind of ["open","beat","unlock"]){ const o=orig.find(l=>l.startsWith(kind+"|"+c+"|")), i=zLine(kind,c);
@@ -1344,11 +1358,11 @@ function coopCard(b){
     el("input",{type:"checkbox",checked:set.has(k),onchange:e=>{ const st=new Set(set); e.target.checked?st.add(k):st.delete(k); write(st); }}),
     el("span",null, el("span",{class:"zn"}, String(ix+1).padStart(2,"0")+" · "+n), el("span",{class:"hint mono"}, k)))));
   b.append(el("div",{class:"card"},
-    el("div",{class:"head"}, el("span",{class:"title"},"Zone co-op (tutto l'account)"), el("span",{class:"spent"}, set.size+" / 12 completate")),
+    el("div",{class:"head"}, el("span",{class:"title"},"Zone co-op (tutto l'account)"), el("span",{class:"spent"}, set.size+" / "+ZONES.length+" completate")),
     ci==null ? el("p",{class:"hint"},"Nessuna riga coopbeat: compare dopo la prima zona completata in co-op. Spuntando una zona la riga viene creata dopo le righe beat, come fa il gioco.") : null,
     grid,
     el("div",{class:"row",style:"margin-top:10px"},
-      el("button",{class:"btn small",type:"button",onclick:()=>write(new Set(ZONES.map(z=>z[1])))},"Tutte e 12"),
+      el("button",{class:"btn small",type:"button",onclick:()=>write(new Set(ZONES.map(z=>z[1])))},"Tutte"),
       el("button",{class:"btn small ghost",type:"button",onclick:()=>{ const o=S.original.split("\n").find(l=>l.startsWith("coopbeat|")), i=idxOf("coopbeat")[0];
         if(o!=null){ if(i!=null) S.lines[i]=o; else insertLineAfter(["beat|"],["stat|"],o); } else if(i!=null) S.lines.splice(i,1); changed(); renderTabKeepScroll(); }},"Ripristina importate")),
     el("p",{class:"hint",style:"margin:10px 0 0"},"Formato coopbeat|zona,zona,… : a differenza di beat non dipende dalla classe.")));
@@ -1379,7 +1393,7 @@ function gearEditor(c, owned){
   const eq=gearMap("equip",c), lk=gearMap("look",c), tb=el("tbody");
   for(let s=0;s<slotCount(c);s++){
     const key=String(slotKey(c,s)), opts=[];
-    for(let q=0;q<6;q++){ const id=itemId(c,s,q); if(owned.has(id)) opts.push(id); }
+    for(const q of QSETS){ const id=itemId(c,s,q); if(owned.has(id)) opts.push(id); }
     const sel=(kind,cur)=>{ const ids=[...new Set(opts.concat(cur&&cur!=="0"?[cur]:[]))];
       const e=el("select",{"aria-label":(kind==="equip"?"Indossato ":"Aspetto ")+SLOTS[s],onchange:ev=>{ setGear(kind,c,key,ev.target.value); renderTabKeepScroll(); }},
         el("option",{value:""}, kind==="look"?"— come indossato —":"— vuoto —"),
@@ -1388,12 +1402,12 @@ function gearEditor(c, owned){
       e.value=cur||""; return e; };
     tb.append(el("tr",null, el("th",{scope:"row"},SLOTS[s], el("div",{class:"hint mono"},"slot "+key)), el("td",null,el("span",{class:"glab"},"Indossato"),sel("equip",eq[key])), el("td",null,el("span",{class:"glab"},"Aspetto"),sel("look",lk[key]))));
   }
-  const best=(kind,filter)=>{ for(let s=0;s<slotCount(c);s++){ for(let q=5;q>=0;q--){ const id=itemId(c,s,q); if(owned.has(id)&&filter(q)){ const m=gearMap(kind,c); m[String(slotKey(c,s))]=id; const i=gearLine(kind,c,true); S.lines[i]=kind+"|"+c+"|"+Object.keys(m).sort((a,b)=>a-b).map(k=>k+":"+m[k]).join(","); break; } } } changed(); renderTabKeepScroll(); };
+  const best=(kind,filter)=>{ for(let s=0;s<slotCount(c);s++){ for(const q of [QLEG,QT05,QPVP,3,2,1,0]){ const id=itemId(c,s,q); if(owned.has(id)&&filter(q)){ const m=gearMap(kind,c); m[String(slotKey(c,s))]=id; const i=gearLine(kind,c,true); S.lines[i]=kind+"|"+c+"|"+Object.keys(m).sort((a,b)=>a-b).map(k=>k+":"+m[k]).join(","); break; } } } changed(); renderTabKeepScroll(); };
   return el("div",{class:"card"},
     el("div",{class:"head"}, el("span",{class:"title"},"Indossato e aspetto · "+className(c)),
       el("span",{class:"row"},
         el("button",{class:"btn small",type:"button",title:"Per ogni slot indossa il pezzo posseduto di rarità più alta",onclick:()=>best("equip",()=>true)},"Indossa il migliore"),
-        el("button",{class:"btn small",type:"button",title:"Come sopra, escludendo il PvP",onclick:()=>best("equip",q=>q!==4)},"Migliore tranne PvP"))),
+        el("button",{class:"btn small",type:"button",title:"Come sopra, escludendo il PvP",onclick:()=>best("equip",q=>q!==QPVP)},"Migliore tranne PvP"))),
     el("div",{class:"scroll"}, el("table",{class:"gear"}, el("thead",null, el("tr",null, el("th",null,"Slot"), el("th",null,"Indossato (equip)"), el("th",null,"Aspetto (look)"))), tb)),
     el("p",{class:"hint",style:"margin:10px 0 0"},"Le tendine mostrano solo i pezzi posseduti (riga items) di quello slot. La chiave è lo slot di WoW meno 1; l'arma del Cacciatore usa lo slot 17 (visto nel tuo salvataggio), la mano secondaria di Ladro e Sciamano il 16 (verificato su un salvataggio dello Sciamano)."));
 }
